@@ -1,0 +1,25 @@
+# This file defines sensible defaults for packages with Lorentz contracts
+# but does not actually apply  any of them, so it can be safely included.
+# Use these along with the main hpack defaults.
+
+<<: !include "../definitions.yaml"
+
+_definitions:
+  _top-level:
+    - &lorentz-default-extensions
+        - DeriveAnyClass
+        - DerivingStrategies
+        - NoApplicativeDo
+        - RebindableSyntax
+
+    - &lorentz-ghc-options
+        - -Wno-unused-do-bind
+
+  _utils:
+    # Additional options, they will be merged with the ones above when both
+    # are imported.
+
+    - &lorentz-lib-common
+        source-dirs: src
+        default-extensions: *lorentz-default-extensions
+        ghc-options: *lorentz-ghc-options

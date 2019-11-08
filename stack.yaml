@@ -1,0 +1,21 @@
+resolver: lts-14.13
+
+packages:
+- stkr-token
+
+extra-deps:
+- git:
+    https://gitlab.com/morley-framework/morley.git
+    # ^ CI cannot use ssh, so we use http clone here
+  commit:
+    fba24c6271c2ae1ba4b2c956ab3d2e398d22297c # master
+  subdirs:
+    - .
+    - lorentz-contracts
+    - prelude
+- aeson-options-0.1.0
+- base58-bytestring-0.1.0
+- constraints-0.11
+- hex-text-0.1.0.0
+- pretty-terminal-0.1.0.0
+- show-type-0.1.1

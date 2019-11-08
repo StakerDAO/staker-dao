@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2019 Serokell <https://serokell.io>
+# SPDX-License: Unlicense
+
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+
+TODO: should I do it in dep5 too?
+
+Files: .gitlab/*
+Copyright: 2019 Serokell <https://serokell.io>
+License: Unlicense

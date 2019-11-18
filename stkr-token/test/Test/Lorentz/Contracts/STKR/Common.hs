@@ -14,7 +14,7 @@ import qualified Lorentz.Contracts.STKR as STKR
 
 originate
   :: STKR.Storage
-  -> IntegrationalScenarioM (ContractAddr STKR.Parameter)
+  -> IntegrationalScenarioM (ContractRef STKR.Parameter)
 originate storage = lOriginate STKR.stkrContract "STKR token" storage (toMutez 1000)
 
 newKeypair :: ByteString -> (SecretKey, PublicKey)

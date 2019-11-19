@@ -1,18 +1,24 @@
 # SPDX-FileCopyrightText: 2019 Serokell <https://serokell.io>
 #
-# SPDX-License-Identifier: MPL-2.0
 # SPDX-License-Identifier: Unlicense
 
-# Example Makefile that you can put into root directory of a Haskell package.
-# We assume that it is called "mypackage".
-# It uses `make/Makefile`.
+# Defines utilities for other Makefiles
 
-.PHONY: all test-all
+.PHONY: dev test build repl shell
 
-# Build target from the common utility Makefile
-MAKEU = $(MAKE) -C make/
+# Build everything 
+dev:
+	nix-shell --run 'cd stkr-token && hpack && cabal build'
 
-all:
-	$(MAKEU) PACKAGE=""
+# Run tests in all packages which have them.
 test:
-	$(MAKEU) test PACKAGE=""
+	nix-shell --run 'cd stkr-token && hpack && cabal test'
+
+repl:
+	nix-shell --run 'cd stkr-token && hpack && cabal repl'
+
+shell:
+	nix-shell
+
+build:
+	nix-build

@@ -14,7 +14,7 @@ further subdivide this into a section describing the problem you are solving and
 another describing your solution.
 -->
 
-[//]: # (Here you can add a link to the corresponding issue tracker, e. g. https://issues.serokell.io/issue/AD-)
+[//]: # (Here you can add a link to the corresponding issue tracker, e. g. https://issues.serokell.io/issue/SDAO-)
 ## Related issue(s)
 
 <!--

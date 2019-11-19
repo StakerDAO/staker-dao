@@ -10,7 +10,7 @@
 
 [//]: # (Add proper project)
 [//]: # (Can be a github link)
-Please [open an issue](https://issues.serokell.io/newIssue?project=KEK)
+Please [open an issue](https://issues.serokell.io/newIssue?project=SDAO)
 if you find a bug or have a feature request.
 Note: you need to login (e. g. using your GitHub account) first.
 Before submitting a bug report or feature request, check to make sure it hasn't already been submitted

@@ -68,7 +68,6 @@ instance (CustomErrorHasDoc "majorityQuorumNotReached") where
   customErrArgumentSemantics =
     Just "wallets found to be non whitelisted"
 
-
 isApprovedByMajority :: forall s. ([(PublicKey, Signature)] : ByteString : [PublicKey] : s) :-> (Bool : s)
 isApprovedByMajority = do
   map (do
@@ -84,7 +83,7 @@ isApprovedByMajority = do
   dropX @1
   dig @1; map hashKey; listToSet;
   dup; size; push (2 :: Natural); swap; ediv; ifSome (do car; push (1 :: Natural); add) (fail_) -- TODO: impossible exception
-  dip (do unionSets; size)
+  dip (do intersectSets; size)
   stackType @(Natural : Natural : s)
   le
 
@@ -120,8 +119,8 @@ listToSet = do
   dip (emptySet @a);
   iter (do dip (push True); update)
 
-unionSets :: forall a s. (IsComparable a, KnownCValue a) => (Set a : Set a : s) :-> ((Set a) : s)
-unionSets = do
+intersectSets :: forall a s. (IsComparable a, KnownCValue a) => (Set a : Set a : s) :-> ((Set a) : s)
+intersectSets = do
   dip (toNamed #y)
   toNamed #x
   emptySet @a; toNamed #result

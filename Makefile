@@ -22,3 +22,6 @@ shell:
 
 build:
 	nix-build
+
+run:
+	nix-shell --run "cd stkr-token && hpack && cabal run stkr-token-exec"

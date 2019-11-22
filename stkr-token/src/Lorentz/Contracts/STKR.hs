@@ -8,6 +8,9 @@ module Lorentz.Contracts.STKR
 import Lorentz
 import Michelson.Typed.Haskell.Value (IsComparable)
 
+instance ParameterEntryPoints Parameter where
+  parameterEntryPoints = pepRecursive
+
 type Hash = ByteString
 type URL = MText
 

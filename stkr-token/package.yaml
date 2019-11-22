@@ -20,16 +20,25 @@ extra-source-files:
 # common to point users to the README.md file.
 description: TODO
 
+dependencies:
+  - base-noprelude >= 4.7 && < 5
+  - morley
+  - morley-prelude
 
 library:
   <<: *lorentz-lib-common
 
   dependencies:
-    - base-noprelude >= 4.7 && < 5
     - containers
     - data-default
-    - morley
-    - morley-prelude
+
+executables:
+  stkr-token-exec:
+    main: Main.hs
+    source-dirs: app
+    dependencies:
+      - fmt
+      - stkr-token
 
 tests:
   stkr-token-test:

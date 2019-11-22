@@ -2,10 +2,11 @@ module Test.Lorentz.Contracts.STKR.AnnounceDecision
   ( spec_AnnounceDecision
   ) where
 
+import Lorentz (Address)
 import Prelude
 
-import Lens.Micro
 import Data.Map.Strict as Map
+import Lens.Micro
 import Test.Hspec (Spec, it)
 
 import Lorentz.Test
@@ -20,6 +21,9 @@ import Test.Lorentz.Contracts.STKR.Common (multisignValue, newKeypair, originate
 
 spec_AnnounceDecision :: Spec
 spec_AnnounceDecision = announceDecisionSpec
+
+admin :: Address
+admin = genesisAddress
 
 announceDecisionSpec :: Spec
 announceDecisionSpec = do
@@ -37,12 +41,7 @@ announceDecisionSpec = do
     integrationalTestExpectation $ do
       let councilPks = [pk1, pk2, pk3, pk4, pk5]
       let councilSks = [sk1, sk2, sk3, sk4, sk5]
-      stkr <- originate $
-        STKR.Storage
-          { teamKeys = []
-          , councilKeys = councilPks
-          , urls = mempty
-          }
+      (_, stkr) <- originate admin [] councilPks
       lCall stkr $
         STKR.AnnounceDecision
           ( #description .! [mt|"Oh, what a description!"|]
@@ -50,12 +49,11 @@ announceDecisionSpec = do
           , #newUrls .! newUrls
           )
 
-      validate . Right . lExpectStorageConst stkr $
-        STKR.Storage
-          { teamKeys = []
-          , councilKeys = councilPks
-          , urls = newUrls
-          }
+      validate . Right . lExpectStorageUpdate stkr $ \storage ->
+        if newUrls == (STKR.urls storage)
+        then pass
+        else Left . CustomValidationError $
+                "Invalid URLs"
 
   it "fail if one of signatures in approvals is incorrect" $
     integrationalTestExpectation $ do
@@ -64,12 +62,7 @@ announceDecisionSpec = do
       let correctlySignedKeys = multisignValue councilSks newUrls
       let wrongSignature = sign sk6 (lPackValue newUrls)
       let messedKeys = correctlySignedKeys & ix 3 . _2 .~ wrongSignature
-      stkr <- originate $
-        STKR.Storage
-          { teamKeys = []
-          , councilKeys = councilPks
-          , urls = mempty
-          }
+      (_, stkr) <- originate admin [] councilPks
       lCall stkr $
         STKR.AnnounceDecision
           ( #description .! [mt|"Oh, what a description!"|]
@@ -80,16 +73,11 @@ announceDecisionSpec = do
       validate . Left $
         lExpectCustomError #invalidSignature pk4
 
-  it "fail if majority quorum of team keys is not reached" $
+  it "fail if majority quorum of council keys is not reached" $
     integrationalTestExpectation $ do
       let councilPks = [pk1, pk2, pk3, pk4, pk5]
       let correctlySignedKeys = multisignValue [sk2, sk4] newUrls
-      stkr <- originate $
-        STKR.Storage
-          { teamKeys = mempty
-          , councilKeys = councilPks
-          , urls = mempty
-          }
+      (_, stkr) <- originate admin [] councilPks
       lCall stkr $
         STKR.AnnounceDecision
           ( #description .! [mt|"Oh, what a description!"|]

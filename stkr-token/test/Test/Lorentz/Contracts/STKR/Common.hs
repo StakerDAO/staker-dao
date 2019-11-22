@@ -4,18 +4,42 @@ module Test.Lorentz.Contracts.STKR.Common
   , multisignValue
   ) where
 
+import qualified Data.Set as Set
+
 import Lorentz.Constraints
 import Lorentz.Pack (lPackValue)
 import Lorentz.Test
 import Lorentz.Value
-import Tezos.Crypto (PublicKey, SecretKey, Signature, detSecretKey, sign, toPublic)
+import Tezos.Crypto (PublicKey, SecretKey, Signature, detSecretKey, sign, hashKey, toPublic)
 
+import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR
 
 originate
-  :: STKR.Storage
-  -> IntegrationalScenarioM (ContractRef STKR.Parameter)
-originate storage = lOriginate STKR.stkrContract "STKR token" storage (toMutez 1000)
+  :: Address -> [PublicKey] -> [PublicKey]
+  -> IntegrationalScenarioM (ContractRef Multisig.Parameter, ContractRef STKR.Parameter)
+originate admin teamKeys councilKeys = do
+  stkr <- lOriginate STKR.stkrContract "STKR token"
+            STKR.Storage
+              { owner = admin
+              , team = Nothing
+              , councilKeys = councilKeys
+              , urls = mempty
+              }
+            (toMutez 0)
+  msig <- lOriginate Multisig.multisigContract "Operation team multisig"
+            Multisig.Storage
+              { keys = Set.fromList $ hashKey <$> teamKeys
+              , quorum = fromIntegral $ (length teamKeys) `ceilDiv` 2
+              , currentNonce = 0
+              , stakerAddress = fromContractAddr stkr
+              }
+            (toMutez 0)
+  lCall stkr $
+    STKR.SetOperationsTeam (fromContractAddr msig)
+  return (msig, stkr)
+  where
+    ceilDiv a b = -((-a) `div` b)  -- rounds toward +inf
 
 newKeypair :: ByteString -> (SecretKey, PublicKey)
 newKeypair bs = let sk = detSecretKey bs in (sk, toPublic sk)
@@ -25,6 +49,6 @@ multisignValue
   => [SecretKey] -- Sks to be signed with
   -> a           -- Value to be signed
   -> [(PublicKey, Signature)]
-multisignValue opsSks newCouncil =
-  let packedCouncil = lPackValue newCouncil
-  in (\sk -> (toPublic sk, sign sk packedCouncil)) <$> opsSks
+multisignValue opsSks value =
+  let packedValue = lPackValue value
+  in (\sk -> (toPublic sk, sign sk packedValue)) <$> opsSks

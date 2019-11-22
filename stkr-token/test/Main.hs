@@ -1,9 +1,12 @@
 module Main
-  (
-    main
+  ( main
   ) where
 
-import Prelude
+import Test.Tasty (defaultMainWithIngredients)
+
+import Util.Test.Ingredients (ourIngredients)
+
+import Tree (tests)
 
 main :: IO ()
-main = pure ()
+main = tests >>= defaultMainWithIngredients ourIngredients

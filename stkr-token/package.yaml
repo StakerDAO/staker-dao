@@ -20,37 +20,25 @@ extra-source-files:
 # common to point users to the README.md file.
 description: TODO
 
+dependencies:
+  - base-noprelude >= 4.7 && < 5
+  - morley
+  - morley-prelude
 
 library:
   <<: *lorentz-lib-common
 
   dependencies:
-    - base-noprelude >= 4.7 && < 5
     - containers
     - data-default
-    - fmt
-    - morley
-    - morley-prelude
-    - singletons
-    - text
-    - turtle
-    - vinyl
-
 
 executables:
-  stkr-token-exe:
-    <<: *exec-common
-
+  stkr-token-exec:
+    main: Main.hs
+    source-dirs: app
     dependencies:
-      - base-noprelude >= 4.7 && < 5
-      - containers
       - fmt
       - stkr-token
-      - lorentz-contracts
-      - morley
-      - morley-prelude
-      - optparse-applicative
-      - text
 
 tests:
   stkr-token-test:
@@ -59,17 +47,11 @@ tests:
     dependencies:
       - base-noprelude >= 4.7 && < 5
       - containers
-      - data-default
-      - fmt
       - hspec
       - hspec-expectations
-      - HUnit
-      - lorentz-contracts
+      - stkr-token
       - morley
       - morley-prelude
-      - QuickCheck
+      - microlens
       - tasty
       - tasty-hspec
-      - tasty-hunit
-      - tasty-quickcheck
-      - vinyl

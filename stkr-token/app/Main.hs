@@ -3,7 +3,9 @@ module Main
     main
   ) where
 
-import MyLib
+import Lorentz (printLorentzContract)
+import Lorentz.Contracts.STKR (stkrContract)
 
 main :: IO ()
-main = someFunc
+main =
+  putStrLn $ printLorentzContract False stkrContract

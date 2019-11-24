@@ -16,8 +16,9 @@ import Util.Named ((.!))
 import Tezos.Crypto (sign)
 
 import qualified Lorentz.Contracts.STKR as STKR
+import Lorentz.Contracts.STKR.Client (multisignValue)
 
-import Test.Lorentz.Contracts.STKR.Common (multisignValue, newKeypair, originate)
+import Test.Lorentz.Contracts.STKR.Common (newKeypair, originate)
 
 spec_AnnounceDecision :: Spec
 spec_AnnounceDecision = announceDecisionSpec

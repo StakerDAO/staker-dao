@@ -15,8 +15,9 @@ import Tezos.Crypto (sign)
 
 import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR
+import Lorentz.Contracts.STKR.Client (multisignValue)
 
-import Test.Lorentz.Contracts.STKR.Common (multisignValue, newKeypair, originate)
+import Test.Lorentz.Contracts.STKR.Common (newKeypair, originate)
 
 admin :: Address
 admin = genesisAddress

@@ -1,3 +1,6 @@
 .stack-work/
 stkr-token.cabal
 *~
+
+# cabal service directory
+dist-newstyle/

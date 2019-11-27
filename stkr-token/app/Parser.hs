@@ -80,10 +80,18 @@ mkRemoteCmdPrs name desc prs =
         , Opt.long "config"
         ])
 
+exeDesc :: [Char]
+exeDesc =
+  "This client allows one to deploy STKR and STKRC"
+  <> " contracts on a Tezos network."
 
+deployDesc :: [Char]
+deployDesc =
+  "Deploy contract to Tezos network with supplied set of team keys "
+  <> "(each key is provided as standalone PK file)."
 
 cmdParser :: Opt.ParserInfo (CliCommand)
-cmdParser = info (helper <*> subparsers) (progDesc "Desc")
+cmdParser = info (helper <*> subparsers) (progDesc exeDesc)
   where
     subparsers = Opt.subparser . mconcat $
         [ printSubprs
@@ -91,10 +99,10 @@ cmdParser = info (helper <*> subparsers) (progDesc "Desc")
         , printStorageSubprs
         ]
 
-    printSubprs = mkCmdPrs "printContract" "print description" $
+    printSubprs = mkCmdPrs "printContract" "Print contract to stdout" $
       Local . PrintContract <$> fileOutputOption
 
-    deploySubprs = mkRemoteCmdPrs "deploy" "deploy desc" $
+    deploySubprs = mkRemoteCmdPrs "deploy" deployDesc $
       Deploy <$>
         (DeployOptions
          <$> contractNameOption
@@ -102,5 +110,5 @@ cmdParser = info (helper <*> subparsers) (progDesc "Desc")
          <*> many (fileArg)
         )
 
-    printStorageSubprs = mkRemoteCmdPrs "printStorage" "Desc" $
+    printStorageSubprs = mkRemoteCmdPrs "printStorage" "Print storage of a contract" $
       PrintStorage <$> addressArg

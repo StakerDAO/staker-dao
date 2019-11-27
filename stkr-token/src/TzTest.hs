@@ -9,6 +9,7 @@ module TzTest
   , OriginateContractP(..)
   , originateContract
 
+  , generateKey
   , getStorage
   ) where
 
@@ -27,6 +28,7 @@ import Lorentz.Print (printLorentzContract, printLorentzValue)
 import Michelson.Typed (IsoValue, ToT)
 import Tezos.Address (Address, formatAddress, parseAddress)
 import Tezos.Core (Mutez)
+import Tezos.Crypto (PublicKey, parsePublicKey)
 
 data Env = Env
   { envTezosClientCmd :: Text
@@ -109,6 +111,16 @@ originateContract OriginateContractP{..} = do
   -- Ex: New contract KT1MNzB6r9eFiYtFbhnRUgnuC83vwSUqERWG originated.
   let addrString = (words contractLine) ^. ix 2
   either (fail . pretty) pure $ parseAddress addrString
+
+generateKey
+  :: Text -> TzTest PublicKey
+generateKey alias = do
+  _ <- exec [ "gen", "keys", alias ]
+  keyLine <- execWithShell [ "show", "address", alias ] $
+    Turtle.grep (Turtle.prefix "Public Key:")
+  -- Ex: New contract KT1MNzB6r9eFiYtFbhnRUgnuC83vwSUqERWG originated.
+  let pk = (words keyLine) ^. ix 2
+  either (fail . (("Error for PK " <> toString pk) <>) . pretty) pure $ parsePublicKey pk
 
 getStorage
   :: forall st.

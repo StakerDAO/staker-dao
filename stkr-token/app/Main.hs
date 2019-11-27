@@ -43,7 +43,9 @@ remoteCmdRunner :: RemoteCommand -> TzTest ()
 remoteCmdRunner = \case
   Deploy DeployOptions{..} -> do
     let readSkFromFile filename = readFileUtf8 filename >>= either (fail . pretty) pure . parsePublicKey . T.strip
-    teamPks <- traverse (liftIO . readSkFromFile) teamPksFiles
+    teamPks <- if null teamPksFiles
+                then mapM (\i -> Tz.generateKey $ contractName <> "_key_" <> show (i :: Int)) [1..3]
+                else traverse (liftIO . readSkFromFile) teamPksFiles
     addr <- Client.deploy $
       Client.DeployOptions
         { councilPks = []

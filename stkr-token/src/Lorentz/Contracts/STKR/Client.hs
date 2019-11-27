@@ -56,7 +56,7 @@ deploy DeployOptions{..} = do
       , ocpSrc = originator
       , ocpContract = STKR.stkrContract
       , ocpInitalStorage = initStorage
-      , ocpBurnCap = 22
+      , ocpBurnCap = 220
       }
 
 getStorage :: Address -> TzTest STKR.Storage

@@ -49,7 +49,7 @@ Warning:
 Hash: tz1PPPYChg5xXHpGzygnNkmzPd1hyVRMxvJf
 ```
 
-Alternatively you can take on of keys mentioned on
+Alternatively you can take one of keys mentioned on
 [Notion page](https://www.notion.so/serokell/Meta-Tezos-95973ecb1c3449e6859a3720af81c6fb).
 
 4. Originate contract:
@@ -57,6 +57,14 @@ Alternatively you can take on of keys mentioned on
 ```
  ./result/bin/stkr-token-exe deploy --tzclient ../tezos-client -A jupiter.serokell.io -P 8732 --contractName mycontract --from tz1PPPYChg5xXHpGzygnNkmzPd1hyVRMxvJf
 ```
+
+You will see output like:
+
+```
+Contract addr: KT1SitwnwEDAQRbznuo4xJaKtQbfJ3XQTPbB
+```
+
+You can find deployed contract on [block explorer](https://babylonnet.tezos.id).
 
 ## Build Instructions [↑](#-StakerDAO)
 

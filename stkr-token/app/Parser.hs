@@ -40,7 +40,7 @@ data RemoteCommand
   | PrintStorage Address
 
 data DeployOptions = DeployOptions
-  { contractName :: Text
+  { contractAlias :: Text
   , originator :: Address
   , teamPksFiles :: [FilePath]
   }
@@ -105,7 +105,7 @@ cmdParser = info (helper <*> subparsers) (progDesc exeDesc)
     deploySubprs = mkRemoteCmdPrs "deploy" deployDesc $
       Deploy <$>
         (DeployOptions
-         <$> contractNameOption
+         <$> contractAliasOption
          <*> addressOption "from"
          <*> many (fileArg)
         )

@@ -5,11 +5,9 @@ module Test.Lorentz.Contracts.STKR.Common
 
 import qualified Data.Set as Set
 
-import Lorentz.Constraints
-import Lorentz.Pack (lPackValue)
 import Lorentz.Test
 import Lorentz.Value
-import Tezos.Crypto (PublicKey, SecretKey, Signature, detSecretKey, hashKey, sign, toPublic)
+import Tezos.Crypto (PublicKey, SecretKey, detSecretKey, hashKey, toPublic)
 
 import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR

@@ -81,7 +81,7 @@ transfer TransferP{..} = do
 
 data OriginateContractP p st =
   OriginateContractP
-  { ocpName :: Text
+  { ocpAlias :: Text
   , ocpQty :: Natural
   , ocpSrc :: Address
   , ocpContract :: Contract p st
@@ -99,7 +99,7 @@ originateContract OriginateContractP{..} = do
   let contractString = toStrict . printLorentzContract True $ ocpContract
   let initString = toStrict . printLorentzValue True $ ocpInitalStorage
   let cmdArgs =
-        [ "originate", "contract", ocpName
+        [ "originate", "contract", ocpAlias
         , "transferring", show ocpQty
         , "from", formatAddress ocpSrc
         , "running", contractString

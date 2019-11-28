@@ -34,7 +34,7 @@ multisignValue opsSks newCouncil =
   in (\sk -> (toPublic sk, sign sk packedCouncil)) <$> opsSks
 
 data DeployOptions = DeployOptions
-  { contractName :: Text
+  { contractAlias :: Text
   , originator :: Address
   , teamPks :: [PublicKey]
   , councilPks :: [PublicKey]
@@ -51,7 +51,7 @@ deploy DeployOptions{..} = do
           }
   Tz.originateContract $
     Tz.OriginateContractP
-      { ocpName = contractName
+      { ocpAlias = contractAlias
       , ocpQty = 0
       , ocpSrc = originator
       , ocpContract = STKR.stkrContract

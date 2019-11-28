@@ -16,7 +16,7 @@ stkrContract :: Contract Parameter Storage
 stkrContract = do
   unpair
   entryCase @Parameter (Proxy @PlainEntryPointsKind)
-    ( #cNewConcuil /-> newCouncil
+    ( #cNewCouncil /-> newCouncil
     , #cAnnounceDecision /-> announceDecision
     , #cSetOperationsTeam /-> setOperationsTeam
     )

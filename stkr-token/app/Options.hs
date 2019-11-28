@@ -1,6 +1,6 @@
 module Options
   ( fileOutputOption
-  , contractNameOption
+  , contractAliasOption
   , fileArg
 
   , addressOption
@@ -23,9 +23,9 @@ fileOutputOption = Opt.optional $ Opt.strOption $ mconcat
   , Opt.help "Output file"
   ]
 
-contractNameOption :: Opt.Parser Text
-contractNameOption = Opt.strOption $ mconcat
-  [ Opt.long "contractName"
+contractAliasOption :: Opt.Parser Text
+contractAliasOption = Opt.strOption $ mconcat
+  [ Opt.long "contractAlias"
   , Opt.metavar "NAME"
   , Opt.help "Contract name"
   ]

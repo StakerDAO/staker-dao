@@ -37,7 +37,7 @@ main = do
 
 localCmdRunner :: LocalCommand -> IO ()
 localCmdRunner = \case
-    PrintContract out -> maybe putStrLn writeFileUtf8 out $ L.printLorentzContract True stkrContract
+    PrintContract out -> maybe putStrLn writeFileUtf8 out $ L.printLorentzContract False stkrContract
 
 remoteCmdRunner :: RemoteCommand -> TzTest ()
 remoteCmdRunner = \case

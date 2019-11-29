@@ -2,18 +2,24 @@ module Test.Lorentz.Contracts.STKR.NewCouncil
   ( spec_NewCouncil
   ) where
 
+import Lorentz (Address)
 import Prelude
 
+import Fmt (listF, (+|), (|+))
 import Lens.Micro
 import Lorentz.Pack
 import Lorentz.Test
 import Test.Hspec (Spec, it)
+import Tezos.Core (dummyChainId)
 import Tezos.Crypto (sign)
-import Util.Named ((.!))
 
+import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR
 
 import Test.Lorentz.Contracts.STKR.Common (multisignValue, newKeypair, originate)
+
+admin :: Address
+admin = genesisAddress
 
 spec_NewCouncil :: Spec
 spec_NewCouncil = newCouncilSpec
@@ -32,45 +38,39 @@ newCouncilSpec = do
       let teamPks = [pk1, pk2, pk3, pk4, pk5]
       let teamSks = [sk1, sk2, sk3, sk4, sk5]
       let newCouncilKeys = [pk6, pk7]
-      stkr <- originate $
-        STKR.Storage
-          { teamKeys = teamPks
-          , councilKeys = []
-          , urls = mempty
+      let toSign = ((dummyChainId, 1 :: Natural), STKR.NewConcuil newCouncilKeys)
+      let correctlySignedKeys = multisignValue teamSks toSign
+      (msig, stkr) <- originate admin teamPks []
+      lCall msig $
+        Multisig.Parameter
+          { stakerParam = STKR.NewConcuil newCouncilKeys
+          , nonce = 1
+          , signatures = correctlySignedKeys
           }
-      lCall stkr $
-        STKR.NewConcuil
-          ( #epochId .! 0
-          , #approvals .! multisignValue teamSks newCouncilKeys
-          , #newCouncil .! newCouncilKeys
-          )
-      validate . Right . lExpectStorageConst stkr $
-        STKR.Storage
-          { teamKeys = teamPks
-          , councilKeys = newCouncilKeys
-          , urls = mempty
-          }
+
+      validate . Right . lExpectStorageUpdate stkr $ \storage ->
+        if newCouncilKeys == (STKR.councilKeys storage)
+        then pass
+        else Left . CustomValidationError $
+               "Expected " +| listF newCouncilKeys |+
+               ", but got " +| listF (STKR.councilKeys storage) |+ ""
 
   it "fail if one of signature in approvals is incorrect" $
     integrationalTestExpectation $ do
       let teamPks = [pk1, pk2, pk3, pk4, pk5]
       let teamSks = [sk1, sk2, sk3, sk4, sk5]
       let newCouncilKeys = [pk6, pk7]
-      let correctlySignedKeys = multisignValue teamSks newCouncilKeys
-      let wrongSignature = sign sk6 (lPackValue newCouncilKeys)
+      let toSign = ((dummyChainId, 1 :: Natural), STKR.NewConcuil newCouncilKeys)
+      let correctlySignedKeys = multisignValue teamSks toSign
+      let wrongSignature = sign sk6 (lPackValue toSign)
       let messedKeys = correctlySignedKeys & ix 3 . _2 .~ wrongSignature
-      stkr <- originate $
-        STKR.Storage
-          { teamKeys = teamPks
-          , councilKeys = []
-          , urls = mempty
+      (msig, _) <- originate admin teamPks []
+      lCall msig $
+        Multisig.Parameter
+          { stakerParam = STKR.NewConcuil newCouncilKeys
+          , nonce = 1
+          , signatures = messedKeys
           }
-      lCall stkr $
-        STKR.NewConcuil
-          ( #epochId .! 0
-          , #approvals .! messedKeys
-          , #newCouncil .! newCouncilKeys
-          )
       validate . Left $
         lExpectCustomError #invalidSignature pk4
 
@@ -78,18 +78,14 @@ newCouncilSpec = do
     integrationalTestExpectation $ do
       let teamPks = [pk1, pk2, pk3, pk4, pk5]
       let newCouncilKeys = [pk6, pk7]
-      let correctlySignedKeys = multisignValue [sk2, sk4] newCouncilKeys
-      stkr <- originate $
-        STKR.Storage
-          { teamKeys = teamPks
-          , councilKeys = []
-          , urls = mempty
+      let toSign = ((dummyChainId, 1 :: Natural), STKR.NewConcuil newCouncilKeys)
+      let correctlySignedKeys = multisignValue [sk2, sk4] toSign
+      (msig, _) <- originate admin teamPks []
+      lCall msig $
+        Multisig.Parameter
+          { stakerParam = STKR.NewConcuil newCouncilKeys
+          , nonce = 1
+          , signatures = correctlySignedKeys
           }
-      lCall stkr $
-        STKR.NewConcuil
-          ( #epochId .! 0
-          , #approvals .! correctlySignedKeys
-          , #newCouncil .! newCouncilKeys
-          )
       validate . Left $
-        lExpectCustomError #majorityQuorumNotReached ()
+        lExpectCustomError #quorumNotReached ()

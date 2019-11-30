@@ -15,8 +15,9 @@ import Tezos.Crypto (sign)
 
 import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR
+import Lorentz.Contracts.STKR.Client (multisignValue)
 
-import Test.Lorentz.Contracts.STKR.Common (multisignValue, newKeypair, originate)
+import Test.Lorentz.Contracts.STKR.Common (newKeypair, originate)
 
 admin :: Address
 admin = genesisAddress
@@ -38,12 +39,12 @@ newCouncilSpec = do
       let teamPks = [pk1, pk2, pk3, pk4, pk5]
       let teamSks = [sk1, sk2, sk3, sk4, sk5]
       let newCouncilKeys = [pk6, pk7]
-      let toSign = ((dummyChainId, 1 :: Natural), STKR.NewConcuil newCouncilKeys)
+      let toSign = ((dummyChainId, 1 :: Natural), STKR.NewCouncil newCouncilKeys)
       let correctlySignedKeys = multisignValue teamSks toSign
       (msig, stkr) <- originate admin teamPks []
       lCall msig $
         Multisig.Parameter
-          { stakerParam = STKR.NewConcuil newCouncilKeys
+          { stakerParam = STKR.NewCouncil newCouncilKeys
           , nonce = 1
           , signatures = correctlySignedKeys
           }
@@ -60,14 +61,14 @@ newCouncilSpec = do
       let teamPks = [pk1, pk2, pk3, pk4, pk5]
       let teamSks = [sk1, sk2, sk3, sk4, sk5]
       let newCouncilKeys = [pk6, pk7]
-      let toSign = ((dummyChainId, 1 :: Natural), STKR.NewConcuil newCouncilKeys)
+      let toSign = ((dummyChainId, 1 :: Natural), STKR.NewCouncil newCouncilKeys)
       let correctlySignedKeys = multisignValue teamSks toSign
       let wrongSignature = sign sk6 (lPackValue toSign)
       let messedKeys = correctlySignedKeys & ix 3 . _2 .~ wrongSignature
       (msig, _) <- originate admin teamPks []
       lCall msig $
         Multisig.Parameter
-          { stakerParam = STKR.NewConcuil newCouncilKeys
+          { stakerParam = STKR.NewCouncil newCouncilKeys
           , nonce = 1
           , signatures = messedKeys
           }
@@ -78,12 +79,12 @@ newCouncilSpec = do
     integrationalTestExpectation $ do
       let teamPks = [pk1, pk2, pk3, pk4, pk5]
       let newCouncilKeys = [pk6, pk7]
-      let toSign = ((dummyChainId, 1 :: Natural), STKR.NewConcuil newCouncilKeys)
+      let toSign = ((dummyChainId, 1 :: Natural), STKR.NewCouncil newCouncilKeys)
       let correctlySignedKeys = multisignValue [sk2, sk4] toSign
       (msig, _) <- originate admin teamPks []
       lCall msig $
         Multisig.Parameter
-          { stakerParam = STKR.NewConcuil newCouncilKeys
+          { stakerParam = STKR.NewCouncil newCouncilKeys
           , nonce = 1
           , signatures = correctlySignedKeys
           }

@@ -31,14 +31,31 @@ library:
   dependencies:
     - containers
     - data-default
+    - morley
+    - morley-prelude
+    # deps for tztest
+    - aeson
+    - text
+    - turtle
+    - singletons
+    - fmt
+    - microlens
 
 executables:
-  stkr-token-exec:
-    main: Main.hs
-    source-dirs: app
+  stkr-token-exe:
+    <<: *exec-common
+
     dependencies:
+      - base-noprelude >= 4.7 && < 5
+      - containers
       - fmt
       - stkr-token
+      - morley
+      - morley-prelude
+      - optparse-applicative
+      - turtle
+      - text
+      - yaml
 
 tests:
   stkr-token-test:

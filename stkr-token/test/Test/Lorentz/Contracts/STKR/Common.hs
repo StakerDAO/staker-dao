@@ -1,16 +1,13 @@
 module Test.Lorentz.Contracts.STKR.Common
   ( originate
   , newKeypair
-  , multisignValue
   ) where
 
 import qualified Data.Set as Set
 
-import Lorentz.Constraints
-import Lorentz.Pack (lPackValue)
 import Lorentz.Test
 import Lorentz.Value
-import Tezos.Crypto (PublicKey, SecretKey, Signature, detSecretKey, sign, hashKey, toPublic)
+import Tezos.Crypto (PublicKey, SecretKey, detSecretKey, hashKey, toPublic)
 
 import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR
@@ -43,12 +40,3 @@ originate admin teamKeys councilKeys = do
 
 newKeypair :: ByteString -> (SecretKey, PublicKey)
 newKeypair bs = let sk = detSecretKey bs in (sk, toPublic sk)
-
-multisignValue
-  :: NicePackedValue a
-  => [SecretKey] -- Sks to be signed with
-  -> a           -- Value to be signed
-  -> [(PublicKey, Signature)]
-multisignValue opsSks value =
-  let packedValue = lPackValue value
-  in (\sk -> (toPublic sk, sign sk packedValue)) <$> opsSks

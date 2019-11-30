@@ -4,21 +4,23 @@ module Main
 
 import Prelude
 
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Yaml as Yaml
-import Fmt (pretty)
+import Fmt (pretty, (+|), (|+))
 import qualified Lorentz as L
 import qualified Options.Applicative as Opt
-import Tezos.Address (formatAddress)
-import Tezos.Crypto (parsePublicKey)
+import Tezos.Crypto (hashKey, parsePublicKey)
 import Util.IO (readFileUtf8, writeFileUtf8)
 
 import TzTest (TzTest)
 import qualified TzTest as Tz
 
+import qualified Lorentz.Contracts.Client as Client
 import Lorentz.Contracts.STKR (stkrContract)
-import qualified Lorentz.Contracts.STKR.Client as Client
+import qualified Lorentz.Contracts.STKR.Client as STKR
+
 
 import Parser
   (CliCommand(..), DeployOptions(..), LocalCommand(..), RemoteAction(..), RemoteCommand(..),
@@ -44,14 +46,15 @@ remoteCmdRunner = \case
   Deploy DeployOptions{..} -> do
     let readSkFromFile filename = readFileUtf8 filename >>= either (fail . pretty) pure . parsePublicKey . T.strip
     teamPks <- if null teamPksFiles
-                then mapM (\i -> Tz.generateKey $ contractAlias <> "_key_" <> show (i :: Int)) [1..3]
-                else traverse (liftIO . readSkFromFile) teamPksFiles
-    addr <- Client.deploy $
+                then mapM (\i -> Tz.generateKey $ msigAlias <> "_key_" <> show (i :: Int)) [1..3]
+                else liftIO $ traverse readSkFromFile teamPksFiles
+    addrs <- Client.deploy $
       Client.DeployOptions
         { councilPks = []
+        , teamKeys = Set.fromList $ hashKey <$> teamPks
         , ..
         }
-    putStrLn $ "Contract addr: " <> formatAddress addr
+    putStrLn @Text $ "Deploy result: " +| addrs |+ ""
 
   PrintStorage addr ->
-    Client.getStorage addr >>= liftIO . T.putStrLn . pretty
+    STKR.getStorage addr >>= liftIO . T.putStrLn . pretty

@@ -36,7 +36,6 @@ multisignValue opsSks newCouncil =
 data DeployOptions = DeployOptions
   { contractAlias :: Text
   , originator :: Address
-  , teamPks :: [PublicKey]
   , councilPks :: [PublicKey]
   }
 
@@ -44,8 +43,8 @@ deploy :: DeployOptions -> TzTest Address
 deploy DeployOptions{..} = do
   let initStorage =
         STKR.Storage
-          { owner = undefined -- TODO: pass
-          , team = undefined -- TODO: pass
+          { owner = originator
+          , team = Nothing
           , councilKeys = councilPks
           , urls = Map.empty
           }
@@ -65,18 +64,17 @@ getStorage = Tz.getStorage @STKR.Storage
 data CallOptions = CallOptions
   { caller :: Address
   , contract :: Address
+  , parameter :: STKR.Parameter
   }
 
 call
   :: CallOptions
-  -> STKR.Parameter
   -> TzTest ()
-call CallOptions{..} param = Tz.transfer $
+call CallOptions{..} = Tz.transfer $
   Tz.TransferP
     { tpQty = unsafeMkMutez 0
     , tpSrc = caller
     , tpDst = contract
     , tpBurnCap = 22
-    , tpArgument = param
+    , tpArgument = parameter
     }
- where

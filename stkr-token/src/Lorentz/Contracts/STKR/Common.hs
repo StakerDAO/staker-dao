@@ -12,7 +12,7 @@ module Lorentz.Contracts.STKR.Common
 import Lorentz
 import Michelson.Typed.Haskell.Value (IsComparable)
 
-import Lorentz.Contracts.Common
+import Lorentz.Contracts.Common ()
 import Lorentz.Contracts.STKR.Error ()
 import Lorentz.Contracts.STKR.Storage (Storage)
 

@@ -28,6 +28,9 @@ data Parameter = Parameter
   } deriving stock Generic
     deriving anyclass IsoValue
 
+instance ParameterEntryPoints Parameter where
+  parameterEntryPoints = pepNone
+
 -- | When this contract is called, it checks that signatures are OK
 -- and invokes the Staker contract with the supplied parameter.
 -- Callable by: Operations team provided the majority quorum is met.

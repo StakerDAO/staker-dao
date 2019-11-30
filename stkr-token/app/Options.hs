@@ -9,6 +9,7 @@ module Options
 
 import Prelude
 
+import Data.Text as T
 import qualified Options.Applicative as Opt
 
 import Fmt (pretty)
@@ -23,13 +24,11 @@ fileOutputOption = Opt.optional $ Opt.strOption $ mconcat
   , Opt.help "Output file"
   ]
 
-contractAliasOption :: Opt.Parser Text
-contractAliasOption = Opt.strOption $ mconcat
-  [ Opt.long "contractAlias"
+contractAliasOption :: Text -> Opt.Parser Text
+contractAliasOption name = Opt.strOption $ mconcat
+  [ Opt.long . T.unpack $ name <> "Alias"
   , Opt.metavar "NAME"
-  , Opt.help "Contract name"
   ]
-
 
 addressOption :: String -> Opt.Parser Address
 addressOption long = Opt.option addressReader $ mconcat [Opt.long long, Opt.metavar "ADDRESS"]

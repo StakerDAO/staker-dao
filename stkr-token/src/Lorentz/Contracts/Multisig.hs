@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Lorentz.Contracts.Multisig
   ( Order
   , Parameter (..)

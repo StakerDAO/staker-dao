@@ -7,7 +7,6 @@ import Prelude
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import qualified Data.Yaml as Yaml
 import Fmt (pretty, (+|), (|+))
 import qualified Lorentz as L
 import qualified Options.Applicative as Opt
@@ -34,7 +33,7 @@ main = do
     Local localCmd -> localCmdRunner tc localCmd
     Remote RemoteAction{..} -> do
       env <- case tzEnvConfig of
-        YamlFile path -> Yaml.decodeFileThrow @IO @Tz.Env path
+        YamlFile path -> Tz.readEnvFromFile path
         CliArgs tzEnv -> pure tzEnv
       Tz.runTzTest (remoteCmdRunner tc remoteCmd) env
 

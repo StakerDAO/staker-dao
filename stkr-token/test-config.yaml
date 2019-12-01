@@ -1,0 +1,3 @@
+envTezosClientCmd: "tezos-client"
+envNode: "jupiter.serokell.io"
+envNodePort: 8732

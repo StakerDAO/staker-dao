@@ -41,6 +41,7 @@ library:
     - singletons
     - fmt
     - microlens
+    - yaml
 
 executables:
   stkr-token-exe:
@@ -56,7 +57,24 @@ executables:
       - optparse-applicative
       - turtle
       - text
-      - yaml
+
+  stkr-token-test-end2end:
+    <<: *test-common
+
+    source-dirs: test-end2end
+
+    dependencies:
+      - base-noprelude >= 4.7 && < 5
+      - containers
+      - hspec
+      - hspec-expectations
+      - stkr-token
+      - morley
+      - morley-prelude
+      - tasty
+      - tasty-hspec
+      - time
+
 
 tests:
   stkr-token-test:

@@ -5,9 +5,6 @@ module Lorentz.Contracts.Multisig.Client
 
 import Prelude
 
-import GHC.Natural (intToNatural)
-
-import qualified Data.Set as Set
 import Tezos.Address (Address)
 import Tezos.Crypto (KeyHash)
 
@@ -19,16 +16,15 @@ import qualified Lorentz.Contracts.Multisig as Multisig
 data DeployOptions = DeployOptions
   { contractAlias :: Text
   , originator :: Address
-  , keys :: Set KeyHash
-  , stakerAddress :: Address
+  , teamKeys :: Set KeyHash
   }
 
 deploy :: DeployOptions -> TzTest Address
 deploy DeployOptions{..} = do
   let initStorage =
         Multisig.Storage
-          { quorum = intToNatural $ (Set.size keys `div` 2) + 1
-          , currentNonce = 0
+          { currentNonce = 0
+          , teamKeys = teamKeys
           , ..
           }
   Tz.originateContract $ Tz.OriginateContractP

@@ -2,7 +2,6 @@ module Test.Lorentz.Contracts.STKR.AnnounceDecision
   ( spec_AnnounceDecision
   ) where
 
-import Lorentz (Address)
 import Prelude
 
 import Data.Map.Strict as Map
@@ -16,15 +15,12 @@ import Util.Named ((.!))
 import Tezos.Crypto (sign)
 
 import qualified Lorentz.Contracts.STKR as STKR
-import Lorentz.Contracts.STKR.Client (multisignValue)
+import Lorentz.Contracts.Client (multisignValue)
 
 import Test.Lorentz.Contracts.STKR.Common (newKeypair, originate)
 
 spec_AnnounceDecision :: Spec
 spec_AnnounceDecision = announceDecisionSpec
-
-admin :: Address
-admin = genesisAddress
 
 announceDecisionSpec :: Spec
 announceDecisionSpec = do
@@ -42,7 +38,7 @@ announceDecisionSpec = do
     integrationalTestExpectation $ do
       let councilPks = [pk1, pk2, pk3, pk4, pk5]
       let councilSks = [sk1, sk2, sk3, sk4, sk5]
-      (_, stkr) <- originate admin [] councilPks
+      (_, stkr) <- originate [] councilPks
       lCall stkr $
         STKR.AnnounceDecision
           ( #description .! [mt|"Oh, what a description!"|]
@@ -63,7 +59,7 @@ announceDecisionSpec = do
       let correctlySignedKeys = multisignValue councilSks newUrls
       let wrongSignature = sign sk6 (lPackValue newUrls)
       let messedKeys = correctlySignedKeys & ix 3 . _2 .~ wrongSignature
-      (_, stkr) <- originate admin [] councilPks
+      (_, stkr) <- originate [] councilPks
       lCall stkr $
         STKR.AnnounceDecision
           ( #description .! [mt|"Oh, what a description!"|]
@@ -78,7 +74,7 @@ announceDecisionSpec = do
     integrationalTestExpectation $ do
       let councilPks = [pk1, pk2, pk3, pk4, pk5]
       let correctlySignedKeys = multisignValue [sk2, sk4] newUrls
-      (_, stkr) <- originate admin [] councilPks
+      (_, stkr) <- originate [] councilPks
       lCall stkr $
         STKR.AnnounceDecision
           ( #description .! [mt|"Oh, what a description!"|]

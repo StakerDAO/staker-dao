@@ -1,58 +1,45 @@
 module Lorentz.Contracts.Multisig
-  ( Parameter (..)
+  ( Order
+  , Parameter (..)
+  , Signatures
   , Storage (..)
+  , ValueToSign (..)
 
+  , mkCallOrder
+  , mkCallOrderUnsafe
+  , mkRotateKeysOrder
+  , mkTransferOrder
+  , mkTransferOrderUnsafe
   , multisigContract
   ) where
 
 import Lorentz
 
-import Lorentz.Contracts.Common ()
-import qualified Lorentz.Contracts.STKR as STKR
+import Lorentz.Contracts.Common
+import Lorentz.Contracts.Multisig.Error ()
+import Lorentz.Contracts.Multisig.Parameter
+import Lorentz.Contracts.Multisig.Storage
 
-
-type Signatures = [(PublicKey, Signature)]
-
-data Storage = Storage
-  { keys :: Set KeyHash
-  , quorum :: Natural
-  , currentNonce :: Natural
-  , stakerAddress :: Address
-  } deriving stock Generic
-    deriving anyclass IsoValue
-
-data Parameter = Parameter
-  { stakerParam :: STKR.Parameter
-  , nonce :: Natural
-  , signatures :: Signatures
-  } deriving stock Generic
-    deriving anyclass IsoValue
-
-instance ParameterEntryPoints Parameter where
-  parameterEntryPoints = pepNone
-
--- | When this contract is called, it checks that signatures are OK
--- and invokes the Staker contract with the supplied parameter.
--- Callable by: Operations team provided the majority quorum is met.
 multisigContract :: '[(Parameter, Storage)] :-> '[([Operation], Storage)]
 multisigContract = do
   unpair
-  dup; dip checkNonce
-  dip dup; dup
-  dip checkSignatures
-  dip $ do
-    getField #stakerAddress
-    contract @(STKR.Parameter)
-    if IsSome
-    then nop
-    else failCustom_ #invalidStakerContract
-    push (toMutez 0)
-  toField #stakerParam
-  transferTokens
-  dip nil; cons; pair
+  dup; dip updateNonceIfCorrect
+  dupTop2; checkSignatures
+  toField #order
+  caseT $
+    ( #cCall /-> do
+        unit; exec
+        dip nil; cons; pair
 
-checkNonce :: '[Parameter, Storage] :-> '[Storage]
-checkNonce = do
+    , #cRotateKeys /-> do
+        setField #teamKeys
+        nil; pair
+    )
+
+-- | Ensures nonce is equal to (currentNonce + 1) and updates currentNonce
+-- if the condition holds. Otherwise, fails with #invalidNonce
+updateNonceIfCorrect :: forall s. Parameter ': Storage ': s :-> Storage ': s
+updateNonceIfCorrect = do
   dip $ do
     getField #currentNonce
     push @Natural 1
@@ -63,52 +50,66 @@ checkNonce = do
   then setField #currentNonce
   else failCustom_ #invalidNonce
 
+-- | Ensures that there's enough signatures, checks each of the supplied
+-- signatures, fails if the quorum is not met or if any of the signatures
+-- is invalid.
 checkSignatures :: forall s. Parameter ': Storage ': s :-> s
 checkSignatures = do
-  ensureQuorum
-  getField #signatures
-  dip $ do
-    dip $ toField #keys
-    getField #nonce
-    dip $ toField #stakerParam
-    chainId
+  dup; prepareData
 
-  stackType @(Signatures : ChainId : Natural : STKR.Parameter : Set KeyHash : s)
-  dip $ pair # pair # pack
+  swap; toField #signatures
+  dipN @2 $ toField #teamKeys
+
   stackType @(Signatures : ByteString : Set KeyHash : s)
-  iter $ do
-    stackType @((PublicKey, Signature) : ByteString : Set KeyHash : s)
+  map $ do
     unpair;
-    ensureSignatureValid
-    dip $ duupX @2
-    ensureKeyEligible
-    stackType @(ByteString : Set KeyHash : s)
-  stackType @(ByteString : Set KeyHash : s)
-  dropN @2
+    stackType @(PublicKey : Signature : ByteString : Set KeyHash : s)
+    duupX @4; duupX @2; ensureKeyEligible
+    dipN @2 dup; ensureSignatureValid
+
+  stackType @([KeyHash] : ByteString : Set KeyHash : s)
+  dip drop
+  listToSet
+  toNamed #supplied
+  dip $ toNamed #eligible
+  ensureQuorum
+
   where
-    ensureQuorum :: Parameter ': Storage ': s1 :-> Parameter ': Storage ': s1
+    ensureQuorum :: ("supplied" :! Set KeyHash) ': ("eligible" :! Set KeyHash) ': s1 :-> s1
     ensureQuorum = do
-      dip $ getField #quorum
-      getField #signatures
+      dip $ do
+        fromNamed #eligible
+        size
+      fromNamed #supplied
       size
-      dip swap
-      ge
+      push @Natural 2
+      mul  -- 2 * supplied signatures > eligible keys count,
+      gt   -- note the strict inequality
       if Holds
       then nop
-      else failCustom_ #quorumNotReached
+      else failCustom_ #majorityQuorumNotReached
+
+    prepareData :: Parameter : s1 :-> ByteString : s1
+    prepareData = do
+      constructT @ValueToSign $
+        ( fieldCtor $ chainId
+        , fieldCtor $ getField #nonce
+        , fieldCtor $ getField #order
+        )
+      dip drop
+      stackType @(ValueToSign : _)
+      pack
 
     ensureSignatureValid
-      :: PublicKey : Signature : ByteString : s1 :-> PublicKey : ByteString : s1
+      :: PublicKey : Signature : ByteString : s1 :-> KeyHash ': s1
     ensureSignatureValid = do
-      duupX @3; dig @2; duupX @3
-      stackType @(PublicKey : Signature : ByteString : PublicKey : ByteString : _)
-      checkSignature
+      dup; dip checkSignature
+      swap
       if Holds
-      then nop
+      then hashKey
       else failCustom #invalidSignature
 
-    ensureKeyEligible
-      :: PublicKey : Set KeyHash : s1 :-> s1
+    ensureKeyEligible :: PublicKey : Set KeyHash : s1 :-> s1
     ensureKeyEligible = do
       dup; hashKey
       dip swap
@@ -116,25 +117,3 @@ checkSignatures = do
       if Holds
       then drop
       else failCustom #invalidSignature
-
-type instance ErrorArg "invalidNonce" = ()
-
-instance (CustomErrorHasDoc "invalidNonce") where
-  customErrClass = ErrClassActionException
-
-  customErrDocMdCause =
-    "The supplied nonce is invalid"
-
-  customErrArgumentSemantics =
-    Just "the supplied nonce is invalid"
-
-type instance ErrorArg "invalidStakerContract" = ()
-
-instance (CustomErrorHasDoc "invalidStakerContract") where
-  customErrClass = ErrClassActionException
-
-  customErrDocMdCause =
-    "The stored staker contract address does not point to a valid STKR contract"
-
-  customErrArgumentSemantics =
-    Just "the stored staker contract address is invalid"

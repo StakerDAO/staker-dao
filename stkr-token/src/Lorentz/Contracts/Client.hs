@@ -1,19 +1,21 @@
 module Lorentz.Contracts.Client
   ( DeployOptions(..)
   , deploy
+  , multisignValue
   ) where
 
 import Prelude
 
 import Fmt (Buildable(..), Builder, mapF)
 
+import Lorentz.Constraints (NicePackedValue)
+import Lorentz.Pack (lPackValue)
 import Tezos.Address (Address)
-import Tezos.Crypto (KeyHash, PublicKey)
+import Tezos.Crypto (KeyHash, PublicKey, SecretKey, Signature, sign, toPublic)
 
 import TzTest (TzTest)
 
 import qualified Lorentz.Contracts.Multisig.Client as Msig
-import qualified Lorentz.Contracts.STKR as STKR
 import qualified Lorentz.Contracts.STKR.Client as STKR
 
 data DeployOptions = DeployOptions
@@ -37,19 +39,23 @@ instance Buildable DeployResult where
 
 deploy :: DeployOptions -> TzTest DeployResult
 deploy DeployOptions{..} = do
-  tokenAddr <- STKR.deploy $ STKR.DeployOptions
-    { contractAlias = tokenAlias
-    , ..
-    }
   msigAddr <- Msig.deploy $ Msig.DeployOptions
     { contractAlias = msigAlias
-    , keys = teamKeys
-    , stakerAddress = tokenAddr
+    , teamKeys = teamKeys
     , ..
     }
-  STKR.call $ STKR.CallOptions
-    { caller = originator
-    , contract = tokenAddr
-    , parameter = STKR.SetOperationsTeam msigAddr
+  tokenAddr <- STKR.deploy $ STKR.DeployOptions
+    { contractAlias = tokenAlias
+    , teamMultisig = msigAddr
+    , ..
     }
   pure DeployResult{..}
+
+multisignValue
+  :: NicePackedValue a
+  => [SecretKey] -- Sks to be signed with
+  -> a           -- Value to be signed
+  -> [(PublicKey, Signature)]
+multisignValue opsSks newCouncil =
+  let packedCouncil = lPackValue newCouncil
+  in (\sk -> (toPublic sk, sign sk packedCouncil)) <$> opsSks

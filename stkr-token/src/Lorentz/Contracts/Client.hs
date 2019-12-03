@@ -17,6 +17,7 @@ import TzTest (TzTest)
 
 import qualified Lorentz.Contracts.Multisig.Client as Msig
 import qualified Lorentz.Contracts.STKR.Client as STKR
+import qualified Lorentz.Contracts.STKR as STKR
 
 data DeployOptions = DeployOptions
   { msigAlias :: Text
@@ -24,6 +25,7 @@ data DeployOptions = DeployOptions
   , originator :: Address
   , councilPks :: [PublicKey]
   , teamKeys :: Set KeyHash
+  , timeConfig :: STKR.TimeConfig
   }
 
 data DeployResult = DeployResult

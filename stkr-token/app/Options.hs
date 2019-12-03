@@ -5,6 +5,13 @@ module Options
 
   , addressOption
   , addressArg
+
+  , TzEnvConfig (..)
+  , tzEnvOptions
+
+  , startOption
+  , durationOption
+  , startYearOption
   ) where
 
 import Prelude
@@ -14,6 +21,8 @@ import qualified Options.Applicative as Opt
 
 import Fmt (pretty)
 import Tezos.Address (Address, parseAddress)
+import Tezos.Core (Timestamp, timestampFromSeconds)
+
 import qualified TzTest as Tz
 
 fileOutputOption :: Opt.Parser (Maybe FilePath)
@@ -38,6 +47,7 @@ fileArg = Opt.strArgument $ mconcat
   [ Opt.metavar "FILEPATH"
   ]
 
+addressReader :: Opt.ReadM Address
 addressReader = Opt.eitherReader $ \addr ->
    either
         (Left . mappend "Failed to parse address: " . pretty)
@@ -55,11 +65,47 @@ addressArg =
         Right $
         parseAddress $ toText addr
 
-tzEnvOptions :: Opt.Parser (Maybe FilePath)
-tzEnvOptions = Opt.optional configFileOption
+data TzEnvConfig
+  = YamlFile FilePath
+  | CliArgs Tz.Env
+
+tzEnvOptions :: Opt.Parser TzEnvConfig
+tzEnvOptions = envPrs <|> configPrs
   where
-    configFileOption = Opt.strOption $ mconcat
-      [ Opt.short 'c'
-      , Opt.long "config"
-      , Opt.metavar "FILEPATH"
-      ]
+    envPrs =
+      CliArgs <$>
+      (Tz.Env
+      <$> (Opt.strOption $ Opt.long "tzclient")
+      <*> (Opt.strOption $ Opt.short 'A')
+      <*> (Opt.option (Opt.auto @Natural) $ Opt.short 'P')
+      )
+
+    configPrs =
+      YamlFile <$>
+      (Opt.strOption $ mconcat
+        [ Opt.short 'c'
+        , Opt.long "config"
+        , Opt.metavar "YAML_FILE"
+        ])
+
+durationOption :: Opt.Parser Natural
+durationOption =
+    Opt.option Opt.auto
+      ( Opt.long "duration" <> Opt.metavar "SECONDS"
+        <> Opt.help "Duration of a stage (for test mode)"
+      )
+
+startYearOption :: Opt.Parser Natural
+startYearOption =
+    Opt.option Opt.auto
+      ( Opt.long "start-year" <> Opt.metavar "YEAR"
+        <> Opt.help "Year of first epoch (for prod mode)"
+      )
+
+startOption :: Opt.Parser Timestamp
+startOption =
+  fmap timestampFromSeconds $
+    Opt.option Opt.auto
+      ( Opt.long "start" <> Opt.metavar "TIMESTAMP"
+        <> Opt.help "Time of first epoch start (for test mode)"
+      )

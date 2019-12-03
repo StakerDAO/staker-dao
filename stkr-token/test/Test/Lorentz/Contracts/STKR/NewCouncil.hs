@@ -5,12 +5,13 @@ module Test.Lorentz.Contracts.STKR.NewCouncil
 import Lorentz (fromContractAddr)
 import Prelude
 
+import qualified Data.Set as S
 import Fmt (listF, (+|), (|+))
 import qualified Lorentz as L
 import Lorentz.Test
 import Test.Hspec (Spec, it)
 import Tezos.Core (dummyChainId)
-import Tezos.Crypto (SecretKey)
+import Tezos.Crypto (SecretKey, hashKey)
 
 import Lorentz.Contracts.Multisig (mkCallOrder)
 import qualified Lorentz.Contracts.Multisig as Multisig
@@ -59,7 +60,7 @@ newCouncilSpec = do
     integrationalTestExpectation $ do
       let teamPks = [pk1, pk2, pk3, pk4, pk5]
       let teamSks = [sk1, sk2, sk3, sk4, sk5]
-      let newCouncilKeys = [pk6, pk7]
+      let newCouncilKeys = S.fromList [hashKey pk6, hashKey pk7]
       (msig, stkr) <- originate teamPks []
 
       callWithMultisig msig 1 teamSks stkr $
@@ -75,11 +76,10 @@ newCouncilSpec = do
   it "fails if called directly" $
     integrationalTestExpectation $ do
       let teamPks = [pk1, pk2, pk3, pk4, pk5]
-      let newCouncilKeys = [pk6, pk7]
+      let newCouncilKeys = S.fromList [hashKey pk6, hashKey pk7]
       (msig, stkr) <- originate teamPks []
 
       lCall stkr $
         STKR.NewCouncil newCouncilKeys
-
       validate . Left $
         lExpectCustomError #senderCheckFailed (fromContractAddr msig)

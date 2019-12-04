@@ -1,3 +1,6 @@
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DeriveAnyClass #-}
+
 module Lorentz.Contracts.STKR.Parameter
   ( Parameter (..)
   , AnnounceDecisionParams
@@ -5,7 +8,7 @@ module Lorentz.Contracts.STKR.Parameter
 
 import Lorentz
 
-import Lorentz.Contracts.STKR.Storage (Hash, URL)
+import Lorentz.Contracts.STKR.Types (Hash, URL)
 
 type AnnounceDecisionParams =
   ( "description" :! MText

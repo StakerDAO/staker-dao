@@ -1,21 +1,24 @@
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DeriveAnyClass #-}
+
 module Lorentz.Contracts.STKR.Storage
   ( Storage(..)
-  , Hash
-  , URL
   ) where
 
 import Fmt (Buildable(..), Builder, blockMapF, jsonListF, mapF', base64F, (+|), (|+))
 
 import Lorentz
 
-type Hash = ByteString
-type URL = MText
+import Lorentz.Contracts.STKR.Types (Hash, URL)
+import Lorentz.Contracts.STKR.Proposal (BookState, Proposal)
 
 data Storage = Storage
   { owner :: Address
   , team :: Maybe Address
   , councilKeys :: [PublicKey] -- TODO: Ahh, public keys are not comparible as I see
   , urls :: Map MText (Hash, URL)
+  , currentBook :: BookState
+  , proposals {- ??? -} :: [(Proposal, {- Map -} [(PublicKey, Signature)])] -- List of pairs instead of Map, see above
   }
   deriving stock Generic
   deriving anyclass IsoValue

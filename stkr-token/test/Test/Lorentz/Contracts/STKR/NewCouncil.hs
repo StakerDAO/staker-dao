@@ -2,25 +2,46 @@ module Test.Lorentz.Contracts.STKR.NewCouncil
   ( spec_NewCouncil
   ) where
 
-import Lorentz (Address)
+import Lorentz (fromContractAddr)
 import Prelude
 
 import Fmt (listF, (+|), (|+))
-import Lens.Micro
-import Lorentz.Pack
+import qualified Lorentz as L
 import Lorentz.Test
 import Test.Hspec (Spec, it)
 import Tezos.Core (dummyChainId)
-import Tezos.Crypto (sign)
+import Tezos.Crypto (SecretKey)
 
+import Lorentz.Contracts.Multisig (mkCallOrder)
 import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR
-import Lorentz.Contracts.STKR.Client (multisignValue)
+import Lorentz.Contracts.Client (multisignValue)
 
 import Test.Lorentz.Contracts.STKR.Common (newKeypair, originate)
 
-admin :: Address
-admin = genesisAddress
+-- | An utility function that creates a call order, signs it and
+-- calls Multisig with the correct parameter.
+callWithMultisig
+  :: L.ContractRef Multisig.Parameter
+  -> Natural
+  -> [SecretKey]
+  -> L.ContractRef STKR.Parameter
+  -> STKR.Parameter
+  -> IntegrationalScenarioM ()
+callWithMultisig msig nonce teamSecretKeys stkr param = do
+  let order = mkCallOrder stkr param
+  let toSign = Multisig.ValueToSign
+        { vtsChainId = dummyChainId
+        , vtsNonce = nonce
+        , vtsOrder = order
+        }
+
+  lCall msig $
+    Multisig.Parameter
+      { order = order
+      , nonce = nonce
+      , signatures = multisignValue teamSecretKeys toSign
+      }
 
 spec_NewCouncil :: Spec
 spec_NewCouncil = newCouncilSpec
@@ -32,22 +53,17 @@ newCouncilSpec = do
   let (sk3, pk3) = newKeypair "3"
   let (sk4, pk4) = newKeypair "4"
   let (sk5, pk5) = newKeypair "5"
-  let (sk6, pk6) = newKeypair "6"
+  let (_, pk6) = newKeypair "6"
   let (_, pk7) = newKeypair "7"
-  it "update council keys if quorum is reached" $
+  it "updates council keys if called via multisig" $
     integrationalTestExpectation $ do
       let teamPks = [pk1, pk2, pk3, pk4, pk5]
       let teamSks = [sk1, sk2, sk3, sk4, sk5]
       let newCouncilKeys = [pk6, pk7]
-      let toSign = ((dummyChainId, 1 :: Natural), STKR.NewCouncil newCouncilKeys)
-      let correctlySignedKeys = multisignValue teamSks toSign
-      (msig, stkr) <- originate admin teamPks []
-      lCall msig $
-        Multisig.Parameter
-          { stakerParam = STKR.NewCouncil newCouncilKeys
-          , nonce = 1
-          , signatures = correctlySignedKeys
-          }
+      (msig, stkr) <- originate teamPks []
+
+      callWithMultisig msig 1 teamSks stkr $
+        STKR.NewCouncil newCouncilKeys
 
       validate . Right . lExpectStorageUpdate stkr $ \storage ->
         if newCouncilKeys == (STKR.councilKeys storage)
@@ -56,37 +72,14 @@ newCouncilSpec = do
                "Expected " +| listF newCouncilKeys |+
                ", but got " +| listF (STKR.councilKeys storage) |+ ""
 
-  it "fail if one of signature in approvals is incorrect" $
+  it "fails if called directly" $
     integrationalTestExpectation $ do
       let teamPks = [pk1, pk2, pk3, pk4, pk5]
-      let teamSks = [sk1, sk2, sk3, sk4, sk5]
       let newCouncilKeys = [pk6, pk7]
-      let toSign = ((dummyChainId, 1 :: Natural), STKR.NewCouncil newCouncilKeys)
-      let correctlySignedKeys = multisignValue teamSks toSign
-      let wrongSignature = sign sk6 (lPackValue toSign)
-      let messedKeys = correctlySignedKeys & ix 3 . _2 .~ wrongSignature
-      (msig, _) <- originate admin teamPks []
-      lCall msig $
-        Multisig.Parameter
-          { stakerParam = STKR.NewCouncil newCouncilKeys
-          , nonce = 1
-          , signatures = messedKeys
-          }
-      validate . Left $
-        lExpectCustomError #invalidSignature pk4
+      (msig, stkr) <- originate teamPks []
 
-  it "fail if majority quorum of team keys is not reached" $
-    integrationalTestExpectation $ do
-      let teamPks = [pk1, pk2, pk3, pk4, pk5]
-      let newCouncilKeys = [pk6, pk7]
-      let toSign = ((dummyChainId, 1 :: Natural), STKR.NewCouncil newCouncilKeys)
-      let correctlySignedKeys = multisignValue [sk2, sk4] toSign
-      (msig, _) <- originate admin teamPks []
-      lCall msig $
-        Multisig.Parameter
-          { stakerParam = STKR.NewCouncil newCouncilKeys
-          , nonce = 1
-          , signatures = correctlySignedKeys
-          }
+      lCall stkr $
+        STKR.NewCouncil newCouncilKeys
+
       validate . Left $
-        lExpectCustomError #quorumNotReached ()
+        lExpectCustomError #senderCheckFailed (fromContractAddr msig)

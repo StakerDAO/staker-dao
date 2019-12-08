@@ -16,7 +16,6 @@ type AnnounceDecisionParams =
 data Parameter
   = NewCouncil [PublicKey]
   | AnnounceDecision AnnounceDecisionParams
-  | SetOperationsTeam Address
   deriving stock Generic
   deriving anyclass IsoValue
 

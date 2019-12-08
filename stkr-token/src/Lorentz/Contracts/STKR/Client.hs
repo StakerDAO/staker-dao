@@ -1,7 +1,5 @@
 module Lorentz.Contracts.STKR.Client
-  ( multisignValue
-
-  , DeployOptions(..)
+  ( DeployOptions(..)
   , deploy
 
   , getStorage
@@ -14,37 +12,26 @@ import Prelude
 
 import qualified Data.Map.Strict as Map
 
-import Lorentz.Constraints (NicePackedValue)
-import Lorentz.Pack (lPackValue)
 import Tezos.Address (Address)
 import Tezos.Core (unsafeMkMutez)
-import Tezos.Crypto (PublicKey, SecretKey, Signature, sign, toPublic)
+import Tezos.Crypto (PublicKey)
 
 import qualified Lorentz.Contracts.STKR as STKR
 import TzTest (TzTest)
 import qualified TzTest as Tz
 
-multisignValue
-  :: NicePackedValue a
-  => [SecretKey] -- Sks to be signed with
-  -> a           -- Value to be signed
-  -> [(PublicKey, Signature)]
-multisignValue opsSks newCouncil =
-  let packedCouncil = lPackValue newCouncil
-  in (\sk -> (toPublic sk, sign sk packedCouncil)) <$> opsSks
-
 data DeployOptions = DeployOptions
   { contractAlias :: Text
   , originator :: Address
   , councilPks :: [PublicKey]
+  , teamMultisig :: Address
   }
 
 deploy :: DeployOptions -> TzTest Address
 deploy DeployOptions{..} = do
   let initStorage =
         STKR.Storage
-          { owner = originator
-          , team = Nothing
+          { owner = teamMultisig
           , councilKeys = councilPks
           , urls = Map.empty
           }

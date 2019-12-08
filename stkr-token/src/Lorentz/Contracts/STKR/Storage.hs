@@ -13,7 +13,6 @@ type URL = MText
 
 data Storage = Storage
   { owner :: Address
-  , team :: Maybe Address
   , councilKeys :: [PublicKey] -- TODO: Ahh, public keys are not comparible as I see
   , urls :: Map MText (Hash, URL)
   }
@@ -23,7 +22,6 @@ data Storage = Storage
 instance Buildable Storage where
   build Storage{..} = blockMapF @[(Text, Builder)] $
     [ ("owner", build owner)
-    , ("team", build team)
     , ("councilKeys", jsonListF councilKeys)
     , ("urls",
        mapF' build (

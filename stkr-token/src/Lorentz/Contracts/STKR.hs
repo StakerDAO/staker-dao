@@ -7,7 +7,7 @@ module Lorentz.Contracts.STKR
 
 import Lorentz
 
-import Lorentz.Contracts.STKR.Common (checkApprovedByMajority, ensureOwner, ensureTeam)
+import Lorentz.Contracts.STKR.Common (checkApprovedByMajority, ensureOwner)
 import Lorentz.Contracts.STKR.Error ()
 import Lorentz.Contracts.STKR.Parameter (AnnounceDecisionParams, Parameter(..))
 import Lorentz.Contracts.STKR.Storage (Storage(..))
@@ -18,12 +18,11 @@ stkrContract = do
   entryCase @Parameter (Proxy @PlainEntryPointsKind)
     ( #cNewCouncil /-> newCouncil
     , #cAnnounceDecision /-> announceDecision
-    , #cSetOperationsTeam /-> setOperationsTeam
     )
 
 newCouncil :: Entrypoint [PublicKey] Storage
 newCouncil = do
-  dip (dup # ensureTeam)
+  dip (dup # ensureOwner)
   setField #councilKeys
   nil; pair
 
@@ -35,11 +34,4 @@ announceDecision = do
   dug @2
   checkApprovedByMajority
   toField #newUrls; setField #urls
-  nil; pair
-
-setOperationsTeam :: Entrypoint Address Storage
-setOperationsTeam = do
-  dip (dup # ensureOwner)
-  some
-  setField #team
   nil; pair

@@ -19,6 +19,7 @@ import qualified TzTest as Tz
 
 import qualified Lorentz.Contracts.Client as Client
 import Lorentz.Contracts.STKR (TimeConfig, stkrContract)
+import Lorentz.Contracts.Multisig (multisigContract)
 import qualified Lorentz.Contracts.STKR.Client as STKR
 
 
@@ -28,7 +29,7 @@ import Parser
 
 main :: IO ()
 main = do
-  (tc, cmd) <- Opt.execParser cmdParser
+  (cmd, tc) <- Opt.execParser cmdParser
   case cmd of
     Local localCmd -> localCmdRunner tc localCmd
     Remote RemoteAction{..} -> do
@@ -39,7 +40,8 @@ main = do
 
 localCmdRunner :: TimeConfig -> LocalCommand -> IO ()
 localCmdRunner tc = \case
-    PrintContract out -> maybe putStrLn writeFileUtf8 out $ L.printLorentzContract False (stkrContract tc)
+    PrintMultisig out -> maybe putStrLn writeFileUtf8 out $ L.printLorentzContract False multisigContract
+    PrintStkr out -> maybe putStrLn writeFileUtf8 out $ L.printLorentzContract False (stkrContract tc)
 
 remoteCmdRunner :: TimeConfig -> RemoteCommand -> TzTest ()
 remoteCmdRunner timeConfig = \case

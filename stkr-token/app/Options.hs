@@ -43,8 +43,9 @@ addressOption :: String -> Opt.Parser Address
 addressOption long = Opt.option addressReader $ mconcat [Opt.long long, Opt.metavar "ADDRESS"]
 
 fileArg :: Opt.Parser FilePath
-fileArg = Opt.strArgument $ mconcat
-  [ Opt.metavar "FILEPATH"
+fileArg = Opt.strOption $ mconcat
+  [ Opt.metavar "PK FILE"
+  , Opt.long "team-pk"
   ]
 
 addressReader :: Opt.ReadM Address
@@ -90,17 +91,17 @@ tzEnvOptions = envPrs <|> configPrs
 
 durationOption :: Opt.Parser Natural
 durationOption =
-    Opt.option Opt.auto
-      ( Opt.long "duration" <> Opt.metavar "SECONDS"
-        <> Opt.help "Duration of a stage (for test mode)"
-      )
+  Opt.option Opt.auto
+    ( Opt.long "duration" <> Opt.metavar "SECONDS"
+      <> Opt.help "Duration of a stage (for test mode)"
+    )
 
 startYearOption :: Opt.Parser Natural
 startYearOption =
-    Opt.option Opt.auto
-      ( Opt.long "start-year" <> Opt.metavar "YEAR"
-        <> Opt.help "Year of first epoch (for prod mode)"
-      )
+  Opt.option Opt.auto
+    ( Opt.long "start-year" <> Opt.metavar "YEAR"
+      <> Opt.help "Year of first epoch (for prod mode)"
+    )
 
 startOption :: Opt.Parser Timestamp
 startOption =

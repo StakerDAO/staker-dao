@@ -24,7 +24,8 @@ data CliCommand
   | Remote RemoteAction
 
 data LocalCommand
-  = PrintContract (Maybe FilePath)
+  = PrintStkr (Maybe FilePath)
+  | PrintMultisig (Maybe FilePath)
 
 data RemoteAction = RemoteAction
   { tzEnvConfig :: TzEnvConfig
@@ -71,14 +72,15 @@ deployDesc =
   "Deploy contract to Tezos network with supplied set of team keys "
   <> "(each key is provided as standalone PK file)."
 
-cmdParser :: Opt.ParserInfo (TimeConfig, CliCommand)
+cmdParser :: Opt.ParserInfo (CliCommand, TimeConfig)
 cmdParser = info (helper <*> toplevel) (progDesc exeDesc)
   where
-    toplevel = (,) <$> tcImpl <*> cmdImpl
+    toplevel = (,) <$> cmdImpl <*> tcImpl
 
     cmdImpl :: Opt.Parser CliCommand
     cmdImpl = Opt.subparser . mconcat $
-        [ printSubprs
+        [ printMsigSubprs
+        , printStkrSubprs
         , deploySubprs
         , printStorageSubprs
         ]
@@ -91,14 +93,17 @@ cmdParser = info (helper <*> toplevel) (progDesc exeDesc)
     prod = mkCmdPrs "test" "Run in test mode" $
               TestTC <$> startOption <*> durationOption
 
-    printSubprs = mkCmdPrs "printContract" "Print contract to stdout" $
-      Local . PrintContract <$> fileOutputOption
+    printMsigSubprs = mkCmdPrs "printMultisig" "Print multisig contract" $
+      Local <$> (PrintMultisig <$> fileOutputOption)
+
+    printStkrSubprs = mkCmdPrs "printStkr" "Print STKR contract" $
+      Local <$> (PrintStkr <$> fileOutputOption)
 
     deploySubprs = mkRemoteCmdPrs "deploy" deployDesc $
       Deploy <$>
         (DeployOptions
          <$> contractAliasOption "msig"
-         <*> contractAliasOption "token"
+         <*> contractAliasOption "stkr"
          <*> addressOption "from"
          <*> many (fileArg)
         )

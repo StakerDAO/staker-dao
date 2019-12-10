@@ -1,8 +1,8 @@
 module Lorentz.Contracts.Client
-  ( DeployOptions(..)
-  , DeployResult (..)
+  ( DeployOptions (..)
   , deploy
   , multisignValue
+  , ContractAddresses (..)
   ) where
 
 import Prelude
@@ -29,18 +29,18 @@ data DeployOptions = DeployOptions
   , timeConfig :: STKR.TimeConfig
   }
 
-data DeployResult = DeployResult
+data ContractAddresses = ContractAddresses
   { tokenAddr :: Address
   , msigAddr :: Address
   }
 
-instance Buildable DeployResult where
-  build DeployResult{..} = mapF @[(Text, Builder)] $
+instance Buildable ContractAddresses where
+  build ContractAddresses{..} = mapF @[(Text, Builder)] $
     [ ("token", build tokenAddr)
     , ("multisig", build msigAddr)
     ]
 
-deploy :: DeployOptions -> TzTest DeployResult
+deploy :: DeployOptions -> TzTest ContractAddresses
 deploy DeployOptions{..} = do
   msigAddr <- Msig.deploy $ Msig.DeployOptions
     { contractAlias = msigAlias
@@ -52,7 +52,7 @@ deploy DeployOptions{..} = do
     , teamMultisig = msigAddr
     , ..
     }
-  pure DeployResult{..}
+  pure ContractAddresses{..}
 
 multisignValue
   :: NicePackedValue a

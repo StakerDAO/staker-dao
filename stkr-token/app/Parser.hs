@@ -5,6 +5,7 @@ module Parser
   , TzEnvConfig(..)
   , RemoteCommand(..)
   , DeployOptions(..)
+  , NewProposalOptions(..)
   , cmdParser
   ) where
 
@@ -14,8 +15,9 @@ import Options.Applicative (command, helper, info, progDesc)
 import qualified Options.Applicative as Opt
 
 import Tezos.Address (Address)
+import Tezos.Crypto (PublicKey, Signature)
 
-import Lorentz.Contracts.STKR (TimeConfig (..))
+import Lorentz.Contracts.STKR (TimeConfig (..), Proposal)
 
 import Options
 
@@ -24,23 +26,34 @@ data CliCommand
   | Remote RemoteAction
 
 data LocalCommand
-  = PrintStkr (Maybe FilePath)
+  = PrintStkr (Maybe FilePath) TimeConfig
   | PrintMultisig (Maybe FilePath)
 
 data RemoteAction = RemoteAction
   { tzEnvConfig :: TzEnvConfig
-  , remoteCmd ::RemoteCommand
+  , remoteCmd :: RemoteCommand
   }
 
 data RemoteCommand
   = Deploy DeployOptions
-  | PrintStorage Address
+  | PrintStorage (OrAlias Address)
+  | NewProposal NewProposalOptions
+
+data NewProposalOptions = NewProposalOptions
+  { npMsig :: OrAlias Address
+  , npStkr :: OrAlias Address
+  , npFrom :: OrAlias Address
+  , npMsigSignatures :: [OrAlias (PublicKey, Signature)]
+  , npProposal :: Proposal
+  , npNonce :: Maybe Natural
+  }
 
 data DeployOptions = DeployOptions
   { msigAlias :: Text
   , tokenAlias :: Text
-  , originator :: Address
+  , originator :: OrAlias Address
   , teamPksFiles :: [FilePath]
+  , timeConfig :: TimeConfig
   }
 
 mkCmdPrs
@@ -72,41 +85,44 @@ deployDesc =
   "Deploy contract to Tezos network with supplied set of team keys "
   <> "(each key is provided as standalone PK file)."
 
-cmdParser :: Opt.ParserInfo (CliCommand, TimeConfig)
-cmdParser = info (helper <*> toplevel) (progDesc exeDesc)
+cmdParser :: Opt.ParserInfo CliCommand
+cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
   where
-    toplevel = (,) <$> cmdImpl <*> tcImpl
-
     cmdImpl :: Opt.Parser CliCommand
     cmdImpl = Opt.subparser . mconcat $
         [ printMsigSubprs
         , printStkrSubprs
         , deploySubprs
         , printStorageSubprs
+        , newProposalSubprs
         ]
 
-    tcImpl :: Opt.Parser TimeConfig
-    tcImpl = Opt.subparser (test <> prod)
-
-    test = mkCmdPrs "prod" "Run in production mode" $
-              ProdTC <$> startYearOption
-    prod = mkCmdPrs "test" "Run in test mode" $
-              TestTC <$> startOption <*> durationOption
-
-    printMsigSubprs = mkCmdPrs "printMultisig" "Print multisig contract" $
+    printMsigSubprs = mkCmdPrs "print-multisig" "Print multisig contract" $
       Local <$> (PrintMultisig <$> fileOutputOption)
 
-    printStkrSubprs = mkCmdPrs "printStkr" "Print STKR contract" $
-      Local <$> (PrintStkr <$> fileOutputOption)
+    printStkrSubprs = mkCmdPrs "print-stkr" "Print STKR contract" $
+      Local <$> (PrintStkr <$> fileOutputOption <*> timeConfigOption)
 
     deploySubprs = mkRemoteCmdPrs "deploy" deployDesc $
       Deploy <$>
         (DeployOptions
-         <$> contractAliasOption "msig"
-         <*> contractAliasOption "stkr"
-         <*> addressOption "from"
+         <$> aliasOption "msig"
+         <*> aliasOption "stkr"
+         <*> addrOrAliasOption "from"
          <*> many (fileArg)
+         <*> timeConfigOption
         )
 
-    printStorageSubprs = mkRemoteCmdPrs "printStorage" "Print storage of a contract" $
-      PrintStorage <$> addressArg
+    newProposalSubprs = mkRemoteCmdPrs "new-proposal" "Submit new proposal" $
+      NewProposal <$>
+        (NewProposalOptions
+          <$> addrOrAliasOption "msig"
+          <*> addrOrAliasOption "stkr"
+          <*> addrOrAliasOption "from"
+          <*> many (pkSigOption "msig")
+          <*> proposalOption
+          <*> nonceOption
+        )
+
+    printStorageSubprs = mkRemoteCmdPrs "print-storage" "Print storage of a contract" $
+      PrintStorage <$> addrOrAliasOption "contract"

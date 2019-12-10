@@ -3,9 +3,6 @@ module Lorentz.Contracts.STKR.Client
   , deploy
 
   , getStorage
-
-  , CallOptions(..)
-  , call
   ) where
 
 import Prelude
@@ -14,7 +11,6 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as S
 
 import Tezos.Address (Address)
-import Tezos.Core (unsafeMkMutez)
 import Tezos.Crypto (PublicKey, hashKey)
 
 import Lorentz.Contracts.STKR.Common (TimeConfig)
@@ -53,21 +49,3 @@ deploy DeployOptions{..} = do
 
 getStorage :: Address -> TzTest STKR.Storage
 getStorage = Tz.getStorage @STKR.Storage
-
-data CallOptions = CallOptions
-  { caller :: Address
-  , contract :: Address
-  , parameter :: STKR.Parameter
-  }
-
-call
-  :: CallOptions
-  -> TzTest ()
-call CallOptions{..} = Tz.transfer $
-  Tz.TransferP
-    { tpQty = unsafeMkMutez 0
-    , tpSrc = caller
-    , tpDst = contract
-    , tpBurnCap = 22
-    , tpArgument = parameter
-    }

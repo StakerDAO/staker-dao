@@ -1,29 +1,44 @@
 module Options
   ( fileOutputOption
-  , contractAliasOption
+  , aliasOption
   , fileArg
 
+  , OrAlias (..)
+  , addrOrAliasOption
+
   , addressOption
-  , addressArg
 
   , TzEnvConfig (..)
   , tzEnvOptions
 
+  , pkSigOption
+
   , startOption
   , durationOption
   , startYearOption
+
+  , proposalOption
+  , nonceOption
+  , timeConfigOption
   ) where
 
 import Prelude
 
-import Data.Text as T
+import qualified Data.Text as T
+import qualified Data.Map as M
 import qualified Options.Applicative as Opt
-
+import Text.Hex (decodeHex)
 import Fmt (pretty)
+
 import Tezos.Address (Address, parseAddress)
+import Michelson.Text (MText, mkMText)
 import Tezos.Core (Timestamp, timestampFromSeconds)
+import Tezos.Crypto (PublicKey, Signature, parsePublicKey, parseSignature)
 
 import qualified TzTest as Tz
+import TzTest (OrAlias)
+
+import Lorentz.Contracts.STKR (Hash, Proposal, TimeConfig (..), URL)
 
 fileOutputOption :: Opt.Parser (Maybe FilePath)
 fileOutputOption = Opt.optional $ Opt.strOption $ mconcat
@@ -33,14 +48,21 @@ fileOutputOption = Opt.optional $ Opt.strOption $ mconcat
   , Opt.help "Output file"
   ]
 
-contractAliasOption :: Text -> Opt.Parser Text
-contractAliasOption name = Opt.strOption $ mconcat
-  [ Opt.long . T.unpack $ name <> "Alias"
-  , Opt.metavar "NAME"
+aliasOption :: String -> Opt.Parser Text
+aliasOption name = Opt.strOption $ mconcat
+  [ Opt.long $ name <> "Alias"
+  , Opt.metavar "ALIAS"
   ]
 
+addrOrAliasOption :: String -> Opt.Parser (OrAlias Address)
+addrOrAliasOption name =
+  (Tz.Alias <$> aliasOption name)
+    <|> (Tz.Value <$> addressOption name)
+
 addressOption :: String -> Opt.Parser Address
-addressOption long = Opt.option addressReader $ mconcat [Opt.long long, Opt.metavar "ADDRESS"]
+addressOption name =
+  Opt.option addressReader $
+    mconcat [Opt.long name, Opt.metavar "ADDRESS"]
 
 fileArg :: Opt.Parser FilePath
 fileArg = Opt.strOption $ mconcat
@@ -51,17 +73,6 @@ fileArg = Opt.strOption $ mconcat
 addressReader :: Opt.ReadM Address
 addressReader = Opt.eitherReader $ \addr ->
    either
-        (Left . mappend "Failed to parse address: " . pretty)
-        Right $
-        parseAddress $ toText addr
-
-addressArg :: Opt.Parser Address
-addressArg =
-  Opt.argument (Opt.eitherReader parseAddress') $
-  Opt.metavar "ADDRESS"
-  where
-    parseAddress' addr =
-      either
         (Left . mappend "Failed to parse address: " . pretty)
         Right $
         parseAddress $ toText addr
@@ -89,6 +100,27 @@ tzEnvOptions = envPrs <|> configPrs
         , Opt.metavar "YAML_FILE"
         ])
 
+pkSigOption :: String -> Opt.Parser (OrAlias (PublicKey, Signature))
+pkSigOption prefix = pkSig <|> (fmap Tz.Alias $ aliasOption $ prefix <> "Key")
+  where
+    pkSig = Tz.Value <$> Opt.option pkSigReader pkSigOpts
+    pkSigOpts = mconcat [ Opt.long $ prefix <> "Sig"
+                        , Opt.metavar "PublicKey:Signature" ]
+
+pkSigReader :: Opt.ReadM (PublicKey, Signature)
+pkSigReader = Opt.eitherReader $ \txt -> do
+  (pkTxt, sigTxt) <-
+    case T.splitOn ":" (T.pack txt) of
+      pt:st:[] -> pure (pt, st)
+      _ -> Left "Expected format: \"<pk>:<sig>\""
+  pk <- handleErr "public key" (parsePublicKey pkTxt)
+  sig <- handleErr "signature" (parseSignature sigTxt)
+  pure (pk, sig)
+  where
+    handleErr subj =
+      either (Left . (<>) ("Failed to parse "
+                              <>subj<>": ") . pretty) Right
+
 durationOption :: Opt.Parser Natural
 durationOption =
   Opt.option Opt.auto
@@ -110,3 +142,58 @@ startOption =
       ( Opt.long "start" <> Opt.metavar "TIMESTAMP"
         <> Opt.help "Time of first epoch start (for test mode)"
       )
+
+urlDesc :: String
+urlDesc =
+  "An URL to be stored in contract.\n"
+  <>
+  "Colon-separated triple should be given: a name of an URL, "
+  <>
+  "SHA256 hash of the document stored at URL "
+  <>
+  "(in hexadecimal format) and URL itself."
+
+proposalOption :: Opt.Parser Proposal
+proposalOption =
+  (\desc plc -> (#description desc, #newPolicy plc)) <$>
+    descOption <*> (many urlOption <&> #urls . M.fromList)
+  where
+    descOption = Opt.option (Opt.eitherReader mkMText')
+                  ( Opt.long "desc" <> Opt.metavar "TEXT"
+                    <> Opt.help "Description of the proposal" )
+    urlOption = Opt.option urlReader
+                  ( Opt.long "url" <> Opt.metavar "NAME:HASH:URL"
+                    <> Opt.help urlDesc)
+    mkMText' = either (Left . ("Failed to parse desc: " <>) . T.unpack)
+                      Right . mkMText . T.pack
+
+urlReader :: Opt.ReadM (MText, (Hash, URL))
+urlReader = Opt.eitherReader $ \txt -> do
+  (nameTxt, hashTxt, urlTxt) <-
+    case T.splitOn ":" (T.pack txt) of
+      n:h:u -> pure (n, h, T.intercalate ":" u)
+      _ -> Left "Expected format: \"<name>:<hash>:<url>\""
+  name <- handleErr "name" (mkMText nameTxt)
+  hash <- handleErr "hash" $ maybe (Left ("wrong" :: Text)) pure
+                                (decodeHex hashTxt)
+  url <- handleErr "URL" (mkMText urlTxt)
+  pure (name, (hash, url))
+  where
+    handleErr subj =
+      either (Left . (<>) ("Failed to parse "
+                              <>subj<>": ") . pretty) Right
+
+nonceOption :: Opt.Parser (Maybe Natural)
+nonceOption = Opt.optional $ Opt.option Opt.auto (Opt.long "nonce")
+
+timeConfigOption :: Opt.Parser TimeConfig
+timeConfigOption = test <|> prod
+  where
+    prod =
+      const ProdTC
+        <$> Opt.switch (Opt.long "prod" <> Opt.help "Run in production mode")
+        <*> startYearOption
+    test =
+      const TestTC
+        <$> Opt.switch (Opt.long "test" <> Opt.help "Run in test mode")
+        <*> startOption <*> durationOption

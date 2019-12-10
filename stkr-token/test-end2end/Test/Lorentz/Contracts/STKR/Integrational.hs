@@ -91,7 +91,7 @@ networkTestSpec TestOptions{..} = do
             , councilPks = []
             , ..
             }
-    Client.DeployResult{..} <- deploy deployOpts
+    Client.ContractAddresses{..} <- deploy deployOpts
     let tokenParam = STKR.NewCouncil newCouncilKeys
     let currentNonce = 1
     chainId <- Tz.getMainChainId

@@ -7,6 +7,7 @@ module TzTest
 
   , TransferP(..)
   , transfer
+  , call
 
   , OriginateContractP(..)
   , originateContract
@@ -17,6 +18,10 @@ module TzTest
 
   , getChainId
   , getMainChainId
+  , resolve
+  , resolve'
+  , ResolveType (..)
+  , OrAlias (..)
   ) where
 
 import Prelude
@@ -24,19 +29,20 @@ import Prelude
 import Data.Singletons (SingI)
 import Data.Text.Lazy (toStrict)
 import qualified Data.Text as T
-import Fmt (pretty)
-import Lens.Micro (ix, (^.))
+import Fmt (Buildable, pretty)
 import Turtle (Line, Shell)
 import qualified Turtle
 import Data.Aeson (FromJSON)
 import qualified Data.Yaml as Yaml
+import Text.Hex (encodeHex)
+import Lens.Micro (ix)
 
 import Lorentz (Contract, NicePrintedValue, NiceStorage, ParameterEntryPoints, parseLorentzValue)
 import Lorentz.Print (printLorentzContract, printLorentzValue)
 import Michelson.Typed (IsoValue, ToT)
 import Tezos.Address (Address, formatAddress, parseAddress)
-import Tezos.Core (Mutez, ChainId, parseChainId)
-import Tezos.Crypto (PublicKey, parsePublicKey, SecretKey, formatSecretKey)
+import Tezos.Core (Mutez, ChainId, parseChainId, unsafeMkMutez)
+import Tezos.Crypto (PublicKey, KeyHash, Signature, parsePublicKey, parseKeyHash, parseSignature, SecretKey, formatSecretKey)
 
 data Env = Env
   { envTezosClientCmd :: Text
@@ -61,6 +67,7 @@ execWithShell :: [Text] -> (Shell Line -> Shell Line) -> TzTest Text
 execWithShell args shellTransform = do
   Env{..} <- ask
   Turtle.export "TEZOS_CLIENT_UNSAFE_DISABLE_DISCLAIMER" "YES"
+  -- putTextLn $ "Executing command: " <> T.intercalate " " args
   let outputShell =
         Turtle.inproc envTezosClientCmd
           ([ "-A", envNode
@@ -90,6 +97,21 @@ transfer TransferP{..} = do
     ]
   pure ()
 
+call
+  :: NicePrintedValue p
+  => Address
+  -> Address
+  -> p
+  -> TzTest ()
+call caller contract parameter = transfer $
+  TransferP
+    { tpQty = unsafeMkMutez 0
+    , tpSrc = caller
+    , tpDst = contract
+    , tpBurnCap = 22
+    , tpArgument = parameter
+    }
+
 data OriginateContractP p st =
   OriginateContractP
   { ocpAlias :: Text
@@ -117,21 +139,75 @@ originateContract OriginateContractP{..} = do
         , "--init", initString
         , "--burn-cap", show ocpBurnCap
         ]
-  contractLine <- execWithShell cmdArgs $
-    Turtle.grep (Turtle.prefix "New contract")
+  addrString <- fromMaybe "" . fmap head . nonEmpty . words . T.strip .
+                lineWithPrefix "New contract " <$> exec cmdArgs
   -- Ex: New contract KT1MNzB6r9eFiYtFbhnRUgnuC83vwSUqERWG originated.
-  let addrString = (words contractLine) ^. ix 2
   either (fail . pretty) pure $ parseAddress addrString
+
+data OrAlias a = Alias Text | Value a
+
+data ResolveType t where
+  PublicKeyAlias :: ResolveType PublicKey
+  KeyHashAlias :: ResolveType KeyHash
+  ContractAlias :: ResolveType Address
+  AddressAlias :: ResolveType Address
+  PkSigAlias :: ByteString -> ResolveType (PublicKey, Signature)
+
+resolve'
+  :: ResolveType t -> OrAlias t -> TzTest t
+resolve' _ (Value v) = pure v
+resolve' rt (Alias al) = resolve rt al
+
+lineWithPrefix :: Text -> Text -> Text
+lineWithPrefix prefix txt
+  | T.null prefix = txt
+  | otherwise =
+      fromMaybe "" . fmap head . nonEmpty $
+      mapMaybe (T.stripPrefix prefix) (lines txt)
+
+resolve
+  :: ResolveType t -> Text -> TzTest t
+resolve rt alias = do
+  let (params, prefix) =
+        case rt of
+          PublicKeyAlias -> (["show","address"], "Hash: ")
+          KeyHashAlias -> (["show","address"], "Public Key: ")
+          ContractAlias -> (["show","known","contract"], "")
+          AddressAlias -> (["show","address"], "Hash: ")
+          PkSigAlias _ -> (["show","address"], "Public Key: ")
+  key <- T.strip . lineWithPrefix prefix <$> exec (params <> [alias])
+  -- putTextLn $ "line: " <> key
+  let errLabel = "Failed to resolve alias " <> toString alias
+  case rt of
+    PublicKeyAlias -> handleErr errLabel $ parsePublicKey key
+    KeyHashAlias -> handleErr errLabel $ parseKeyHash key
+    PkSigAlias bytes ->
+      (,) <$> handleErr errLabel (parsePublicKey key)
+          <*> generateSig alias bytes
+    AddressAlias -> handleErr errLabel $ parseAddress key
+    ContractAlias -> handleErr errLabel $ parseAddress key
+
+handleErr :: Buildable a => String -> Either a t -> TzTest t
+handleErr s = either (fail . ((s <> ": ") <>) . pretty) pure
+
+generateSig
+  :: Text -> ByteString -> TzTest Signature
+generateSig alias bytes = do
+  let errLabel = ("Failed to sign "<>toString bytes_
+                    <>" with alias "<> toString alias)
+  sgn <- T.strip . lineWithPrefix "Signature: " <$>
+          exec ["sign", "bytes", "0x"<>bytes_, "for", alias]
+  handleErr errLabel (parseSignature sgn)
+  where
+    bytes_ = encodeHex bytes
 
 generateKey
   :: Text -> TzTest PublicKey
 generateKey alias = do
   _ <- exec [ "gen", "keys", alias ]
-  keyLine <- execWithShell [ "show", "address", alias ] $
-    Turtle.grep (Turtle.prefix "Public Key:")
-  -- Ex: New contract KT1MNzB6r9eFiYtFbhnRUgnuC83vwSUqERWG originated.
-  let pk = (words keyLine) ^. ix 2
-  either (fail . (("Error for PK " <> toString pk) <>) . pretty) pure $ parsePublicKey pk
+  let errLabel = "Error generating key " <> toString alias
+  pk <- T.strip . lineWithPrefix "Public Key: " <$> exec [ "show", "address", alias ]
+  handleErr errLabel $ parsePublicKey pk
 
 importSecretKey :: Text -> SecretKey -> TzTest Address
 importSecretKey alias sk = do

@@ -16,6 +16,7 @@ import Tezos.Crypto (KeyHash, PublicKey, SecretKey, Signature, sign, toPublic)
 import TzTest (TzTest)
 
 import qualified Lorentz.Contracts.Multisig.Client as Msig
+import qualified Lorentz.Contracts.STKR as STKR
 import qualified Lorentz.Contracts.STKR.Client as STKR
 
 data DeployOptions = DeployOptions
@@ -39,7 +40,7 @@ instance Buildable DeployResult where
 
 deploy :: DeployOptions -> TzTest DeployResult
 deploy DeployOptions{..} = do
-  msigAddr <- Msig.deploy $ Msig.DeployOptions
+  msigAddr <- Msig.deploy @STKR.Parameter $ Msig.DeployOptions
     { contractAlias = msigAlias
     , teamKeys = teamKeys
     , ..

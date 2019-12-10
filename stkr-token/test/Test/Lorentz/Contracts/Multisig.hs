@@ -8,21 +8,23 @@ import Prelude
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Fmt ((+|), (|+))
-import Lorentz ((#))
+import Lens.Micro (ix, (&), (.~))
+import Lorentz (( # ))
 import qualified Lorentz as L
-import Lorentz.Test
+import Lorentz.Constraints (NicePackedValue, NiceParameter)
 import Lorentz.Pack (lPackValue)
-import Lens.Micro ((&), (.~), ix)
+import Lorentz.Test
 import Test.Hspec (Spec, it)
 import Tezos.Core (dummyChainId, mkChainIdUnsafe)
-import Tezos.Crypto (KeyHash, PublicKey, SecretKey, hashKey, detSecretKey, toPublic, sign)
+import Tezos.Crypto (KeyHash, PublicKey, SecretKey, detSecretKey, hashKey, sign, toPublic)
 
-import Lorentz.Contracts.Multisig
 import Lorentz.Contracts.Client (multisignValue)
+import Lorentz.Contracts.Multisig
 
 originate
-  :: [PublicKey]
-  -> IntegrationalScenarioM (L.ContractRef Parameter)
+  :: forall a. (NiceParameter a, NicePackedValue a)
+  => [PublicKey]
+  -> IntegrationalScenarioM (L.ContractRef (Parameter a))
 originate teamKeys =
   lOriginate multisigContract "Operation team multisig"
     Storage
@@ -66,7 +68,8 @@ flagContract = L.drop # L.push True # L.nil # L.pair
 -- | An utility function that signs the order and calls Multisig
 -- with the correct parameter.
 callMsig
-  :: L.ContractRef Parameter -> L.ChainId -> Natural -> Order
+  :: forall a. (NiceParameter a, NicePackedValue a)
+  => L.ContractRef (Parameter a) -> L.ChainId -> Natural -> Order a
   -> [SecretKey] -> IntegrationalScenarioM ()
 callMsig msig chainId nonce order teamSecretKeys = do
   let toSign = ValueToSign
@@ -123,7 +126,7 @@ spec_RotateKeys = do
   it "updates keys if everything is correct (3 of 5 signatures)" $
     integrationalTestExpectation $ do
       let order = mkRotateKeysOrder newTeamPKHs
-      msig <- originate publicKeys
+      msig <- originate @() publicKeys
 
       callMsig msig dummyChainId 1 order (take 3 secretKeys)
       validate . Right $ lExpectStorageConst msig Storage
@@ -134,7 +137,7 @@ spec_RotateKeys = do
   it "updates keys if everything is correct (3 of 4 signatures)" $
     integrationalTestExpectation $ do
       let order = mkRotateKeysOrder newTeamPKHs
-      msig <- originate $ take 4 publicKeys
+      msig <- originate @() $ take 4 publicKeys
 
       callMsig msig dummyChainId 1 order (take 3 secretKeys)
       validate . Right $ lExpectStorageConst msig Storage
@@ -148,12 +151,12 @@ spec_RotateKeys = do
 -- | Specification of general failures that can occur during contract
 -- calls, i.e. invalid chain id, nonce, signature, and too little
 -- amount of signers.
-generalFailuresSpec :: IntegrationalScenarioM Order -> Spec
+generalFailuresSpec :: IntegrationalScenarioM (Order ()) -> Spec
 generalFailuresSpec mkOrder = do
   it "fails if chain id is incorrect" $
     integrationalTestExpectation $ do
       order <- mkOrder
-      msig <- originate publicKeys
+      msig <- originate @() publicKeys
       let wrongChainId = mkChainIdUnsafe "1234"
 
       callMsig msig wrongChainId 1 order (take 3 secretKeys)
@@ -214,13 +217,13 @@ generalFailuresSpec mkOrder = do
   wrongSignatureSpec mkOrder [1, 3, 5]
 
 -- | Tests keys that are not eligible at different positions
-wrongKeySpec :: IntegrationalScenarioM Order -> [Int] -> Spec
+wrongKeySpec :: IntegrationalScenarioM (Order ()) -> [Int] -> Spec
 wrongKeySpec mkOrder positions =
   foldl' (>>) (pure ()) $ positions <&> \pos ->
     it ("fails if one of the keys is not eligible (at pos " +| pos |+ ")") $
       integrationalTestExpectation $ do
         order <- mkOrder
-        msig <- originate publicKeys
+        msig <- originate @() publicKeys
         let wrongKeys = secretKeys & ix (pos - 1) .~ evilSK
 
         callMsig msig dummyChainId 1 order wrongKeys
@@ -228,13 +231,13 @@ wrongKeySpec mkOrder positions =
           lExpectCustomError #invalidSignature evilPK
 
 -- | Tests invalid signatures provided at different positions
-wrongSignatureSpec :: IntegrationalScenarioM Order -> [Int] -> Spec
+wrongSignatureSpec :: IntegrationalScenarioM (Order ()) -> [Int] -> Spec
 wrongSignatureSpec mkOrder positions =
   foldl' (>>) (pure ()) $ positions <&> \pos ->
     it ("fails if one of the signatures is not correct (at pos " +| pos |+ ")") $
       integrationalTestExpectation $ do
         order <- mkOrder
-        msig <- originate publicKeys
+        msig <- originate @() publicKeys
         let nonce = 1
         let toSign = ValueToSign
               { vtsChainId = dummyChainId

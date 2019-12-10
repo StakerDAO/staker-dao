@@ -20,7 +20,9 @@ import Lorentz.Contracts.Multisig.Error ()
 import Lorentz.Contracts.Multisig.Parameter
 import Lorentz.Contracts.Multisig.Storage
 
-multisigContract :: '[(Parameter, Storage)] :-> '[([Operation], Storage)]
+multisigContract
+  :: forall a. NicePackedValue a
+  => '[(Parameter a, Storage)] :-> '[([Operation], Storage)]
 multisigContract = do
   unpair
   dup; dip updateNonceIfCorrect
@@ -28,7 +30,7 @@ multisigContract = do
   toField #order
   caseT $
     ( #cCall /-> do
-        unit; exec
+        unpair; exec
         dip nil; cons; pair
 
     , #cRotateKeys /-> do
@@ -38,7 +40,9 @@ multisigContract = do
 
 -- | Ensures nonce is equal to (currentNonce + 1) and updates currentNonce
 -- if the condition holds. Otherwise, fails with #invalidNonce
-updateNonceIfCorrect :: forall s. Parameter ': Storage ': s :-> Storage ': s
+updateNonceIfCorrect
+  :: forall a s. NicePackedValue a
+  => Parameter a ': Storage ': s :-> Storage ': s
 updateNonceIfCorrect = do
   dip $ do
     getField #currentNonce
@@ -53,7 +57,9 @@ updateNonceIfCorrect = do
 -- | Ensures that there's enough signatures, checks each of the supplied
 -- signatures, fails if the quorum is not met or if any of the signatures
 -- is invalid.
-checkSignatures :: forall s. Parameter ': Storage ': s :-> s
+checkSignatures
+  :: forall a s. NicePackedValue a
+  => Parameter a ': Storage ': s :-> s
 checkSignatures = do
   dup; prepareData
 
@@ -89,15 +95,15 @@ checkSignatures = do
       then nop
       else failCustom_ #majorityQuorumNotReached
 
-    prepareData :: Parameter : s1 :-> ByteString : s1
+    prepareData :: Parameter a : s1 :-> ByteString : s1
     prepareData = do
-      constructT @ValueToSign $
+      constructT @(ValueToSign a) $
         ( fieldCtor $ chainId
         , fieldCtor $ getField #nonce
         , fieldCtor $ getField #order
         )
       dip drop
-      stackType @(ValueToSign : _)
+      stackType @(ValueToSign a : _)
       pack
 
     ensureSignatureValid

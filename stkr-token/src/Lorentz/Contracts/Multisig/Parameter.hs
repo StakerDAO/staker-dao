@@ -17,20 +17,20 @@ import Lorentz.Contracts.Multisig.Error ()
 
 type Signatures = [(PublicKey, Signature)]
 
-data Parameter = Parameter
-  { order :: Order
+data Parameter a = Parameter
+  { order :: Order a
   , nonce :: Natural
   , signatures :: Signatures
   } deriving stock Generic
     deriving anyclass IsoValue
 
-instance ParameterEntryPoints Parameter where
+instance NiceParameter a => ParameterEntryPoints (Parameter a) where
   parameterEntryPoints = pepNone
 
 -- | Action that is going to be executed. May be either some
 -- contract call, or key rotation.
-data Order
-  = Call (Lambda () Operation)
+data Order a
+  = Call (a, (Lambda a Operation))
   | RotateKeys (Set KeyHash)
   deriving stock Generic
   deriving anyclass IsoValue
@@ -38,51 +38,50 @@ data Order
 -- | Value that the participants should sign. Includes nonce to
 -- prevent replay attacks and chain id to prevent cross-chain
 -- replays.
-data ValueToSign = ValueToSign
+data ValueToSign a = ValueToSign
   { vtsChainId :: ChainId
   , vtsNonce :: Natural
-  , vtsOrder :: Order
+  , vtsOrder :: Order a
   } deriving stock Generic
     deriving anyclass IsoValue
 
 -- | Make an order to transfer @amount@ utz from multisig to
 -- @address@ passing @param@ as the transaction parameter.
 mkTransferOrder
-  :: forall a. (NiceParameter a, NiceConstant a)
-  => Mutez -> ContractRef a -> a -> Order
+  :: NiceParameter a
+  => Mutez -> ContractRef a -> a -> Order a
 mkTransferOrder value targetContract param =
   mkTransferOrderUnsafe value (fromContractAddr targetContract) param
 
 -- | An unsafe version of @mkTransferOrder@ that accepts
 -- Address instead of ContractRef.
 mkTransferOrderUnsafe
-  :: forall a. (NiceParameter a, NiceConstant a)
-  => Mutez -> Address -> a -> Order
-mkTransferOrderUnsafe value targetAddress param = Call $ do
-  drop
-  push targetAddress
-  contract @a
-  if IsSome
-  then nop
-  else failCustom_ #invalidStakerContract
-  push value
-  push param
+  :: forall a. NiceParameter a
+  => Mutez -> Address -> a -> Order a
+mkTransferOrderUnsafe value targetAddress param = Call . (param,) $ do
+  dip $ do
+    push targetAddress
+    contract @a
+    if IsSome
+    then nop
+    else failCustom_ #invalidStakerContract
+    push value
   transferTokens
 
 -- | Make an order to "call" an entrypoint, which is equal
 -- to transferring 0 from multisig to @address@ passing
 -- @param@ as the transaction parameter.
 mkCallOrder
-  :: forall a. (NiceParameter a, NiceConstant a)
-  => ContractRef a -> a -> Order
+  :: NiceParameter a
+  => ContractRef a -> a -> Order a
 mkCallOrder = mkTransferOrder (toMutez 0)
 
 -- | An unsafe version of @mkCallOrder@ that accepts Address
 -- instead of ContractRef.
 mkCallOrderUnsafe
-  :: forall a. (NiceParameter a, NiceConstant a)
-  => Address -> a -> Order
+  :: NiceParameter a
+  => Address -> a -> Order a
 mkCallOrderUnsafe = mkTransferOrderUnsafe (toMutez 0)
 
-mkRotateKeysOrder :: Set KeyHash -> Order
+mkRotateKeysOrder :: Set KeyHash -> Order a
 mkRotateKeysOrder = RotateKeys

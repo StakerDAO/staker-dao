@@ -12,17 +12,17 @@ import Test.Hspec (Spec, it)
 import Tezos.Core (dummyChainId)
 import Tezos.Crypto (SecretKey)
 
-import Lorentz.Contracts.Multisig (mkCallOrder)
-import qualified Lorentz.Contracts.Multisig as Multisig
-import qualified Lorentz.Contracts.STKR as STKR
 import Lorentz.Contracts.Client (multisignValue)
+import Lorentz.Contracts.Multisig (mkCallOrder)
+import qualified Lorentz.Contracts.Multisig as Msig
+import qualified Lorentz.Contracts.STKR as STKR
 
 import Test.Lorentz.Contracts.STKR.Common (newKeypair, originate)
 
 -- | An utility function that creates a call order, signs it and
 -- calls Multisig with the correct parameter.
 callWithMultisig
-  :: L.ContractRef Multisig.Parameter
+  :: L.ContractRef (Msig.Parameter STKR.Parameter)
   -> Natural
   -> [SecretKey]
   -> L.ContractRef STKR.Parameter
@@ -30,14 +30,14 @@ callWithMultisig
   -> IntegrationalScenarioM ()
 callWithMultisig msig nonce teamSecretKeys stkr param = do
   let order = mkCallOrder stkr param
-  let toSign = Multisig.ValueToSign
+  let toSign = Msig.ValueToSign
         { vtsChainId = dummyChainId
         , vtsNonce = nonce
         , vtsOrder = order
         }
 
   lCall msig $
-    Multisig.Parameter
+    Msig.Parameter
       { order = order
       , nonce = nonce
       , signatures = multisignValue teamSecretKeys toSign

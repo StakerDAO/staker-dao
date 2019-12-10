@@ -9,15 +9,15 @@ import Lorentz.Test
 import Lorentz.Value
 import Tezos.Crypto (PublicKey, SecretKey, detSecretKey, hashKey, toPublic)
 
-import qualified Lorentz.Contracts.Multisig as Multisig
+import qualified Lorentz.Contracts.Multisig as Msig
 import qualified Lorentz.Contracts.STKR as STKR
 
 originate
   :: [PublicKey] -> [PublicKey]
-  -> IntegrationalScenarioM (ContractRef Multisig.Parameter, ContractRef STKR.Parameter)
+  -> IntegrationalScenarioM (ContractRef (Msig.Parameter STKR.Parameter), ContractRef STKR.Parameter)
 originate teamKeys councilKeys = do
-  msig <- lOriginate Multisig.multisigContract "Operation team multisig"
-            Multisig.Storage
+  msig <- lOriginate (Msig.multisigContract @STKR.Parameter) "Operation team multisig"
+            Msig.Storage
               { teamKeys = Set.fromList $ hashKey <$> teamKeys
               , currentNonce = 0
               }

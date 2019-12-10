@@ -5,7 +5,7 @@ module Lorentz.Contracts.STKR.Storage
   , URL
   , Proposal
   , Policy
-  , Blake2BHash
+  , Blake2BHash (..)
   , blake2B_
   ) where
 

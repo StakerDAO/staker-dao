@@ -4,6 +4,7 @@ module Main
 
 import Prelude
 
+import Named (arg)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -24,7 +25,8 @@ import qualified Lorentz.Contracts.STKR.Client as STKR
 
 import Parser
   (CliCommand(..), DeployOptions(..), LocalCommand(..), RemoteAction(..), RemoteCommand(..),
-  TzEnvConfig(..), NewProposalOptions (..), cmdParser)
+  TzEnvConfig(..), NewCouncilOptions (..), NewProposalOptions (..), VoteForProposalOptions (..),
+  ViaMultisigOptions (..), cmdParser)
 
 main :: IO ()
 main = do
@@ -46,6 +48,21 @@ localCmdRunner = \case
       maybe putStrLn writeFileUtf8 out $
       L.printLorentzContract False (STKR.stkrContract tc)
 
+callViaMultisig :: STKR.Parameter -> ViaMultisigOptions -> TzTest ()
+callViaMultisig stkrParam ViaMultisigOptions {..} = do
+  fromAddr <- Tz.resolve' Tz.AddressAlias vmoFrom
+  msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
+  stkrAddr <- Tz.resolve' Tz.ContractAlias vmoStkr
+  let order = Msig.mkCallOrderUnsafe stkrAddr stkrParam
+  chainId <- Tz.getMainChainId
+  let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage msigAddr
+  nonce <- maybe getNonce pure vmoNonce
+  let toSign = Msig.ValueToSign chainId nonce order
+  let bytes = L.lPackValue toSign
+  pkSigs <- mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
+  let param = Msig.Parameter order nonce pkSigs
+  Tz.call fromAddr msigAddr param
+
 remoteCmdRunner :: RemoteCommand -> TzTest ()
 remoteCmdRunner = \case
   Deploy DeployOptions{..} -> do
@@ -62,20 +79,26 @@ remoteCmdRunner = \case
         , ..
         }
     putTextLn $ "Deploy result: " +| addrs |+ ""
-  NewProposal NewProposalOptions {..} -> do
-    fromAddr <- Tz.resolve' Tz.AddressAlias npFrom
-    msigAddr <- Tz.resolve' Tz.ContractAlias npMsig
-    stkrAddr <- Tz.resolve' Tz.ContractAlias npStkr
-    let order = Msig.mkCallOrderUnsafe stkrAddr (STKR.NewProposal npProposal)
-    chainId <- Tz.getMainChainId
-    let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage msigAddr
-    nonce <- maybe getNonce pure npNonce
-    let toSign = Msig.ValueToSign chainId nonce order
-    let bytes = L.lPackValue toSign
-    pkSigs <- mapM (Tz.resolve' (Tz.PkSigAlias bytes)) npMsigSignatures
-    let param = Msig.Parameter order nonce pkSigs
-    Tz.call fromAddr msigAddr param
-
+  NewProposal NewProposalOptions {..} ->
+    callViaMultisig (STKR.NewProposal npProposal) npViaMultisig
+  NewCouncil NewCouncilOptions {..} -> do
+    let genCouncil (prefix, n) =
+          mapM (\i -> fmap hashKey . Tz.generateKey $ prefix <> "_key_" <> show i) [1..n]
+    council <- either (fmap Set.fromList . genCouncil) pure ncCouncil
+    callViaMultisig (STKR.NewCouncil council) ncViaMultisig
+  VoteForProposal VoteForProposalOptions {..} -> do
+    fromAddr <- Tz.resolve' Tz.AddressAlias vpFrom
+    stkrAddr <- Tz.resolve' Tz.ContractAlias vpStkr
+    storage <- Tz.getStorage stkrAddr
+    proposalHash <-
+      maybe (fail $ "Proposal id not found " <> show vpProposalId) pure .
+      fmap (arg #proposalHash . snd) . safeHead . snd . splitAt (fromIntegral vpProposalId - 1) $
+      STKR.proposals storage
+    let curStage = vpEpoch*4 + 2
+    let toSignB = L.lPackValue $ STKR.CouncilDataToSign proposalHash stkrAddr curStage
+    (pk, sig) <- Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
+    Tz.call fromAddr stkrAddr $ STKR.VoteForProposal
+      (#proposalId vpProposalId, #votePk pk, #voteSig sig)
   PrintStorage addr_ ->
     Tz.resolve' Tz.ContractAlias addr_ >>=
     STKR.getStorage >>= liftIO . T.putStrLn . pretty

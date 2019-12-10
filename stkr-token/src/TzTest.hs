@@ -139,7 +139,7 @@ originateContract OriginateContractP{..} = do
         , "--init", initString
         , "--burn-cap", show ocpBurnCap
         ]
-  addrString <- fromMaybe "" . fmap head . nonEmpty . words . T.strip .
+  addrString <- fromMaybe "" . safeHead . words . T.strip .
                 lineWithPrefix "New contract " <$> exec cmdArgs
   -- Ex: New contract KT1MNzB6r9eFiYtFbhnRUgnuC83vwSUqERWG originated.
   either (fail . pretty) pure $ parseAddress addrString
@@ -162,7 +162,7 @@ lineWithPrefix :: Text -> Text -> Text
 lineWithPrefix prefix txt
   | T.null prefix = txt
   | otherwise =
-      fromMaybe "" . fmap head . nonEmpty $
+      fromMaybe "" . safeHead $
       mapMaybe (T.stripPrefix prefix) (lines txt)
 
 resolve

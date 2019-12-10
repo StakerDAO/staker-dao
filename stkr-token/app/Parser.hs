@@ -1,11 +1,14 @@
 module Parser
-  ( CliCommand(..)
-  , LocalCommand(..)
-  , RemoteAction(..)
-  , TzEnvConfig(..)
-  , RemoteCommand(..)
-  , DeployOptions(..)
-  , NewProposalOptions(..)
+  ( CliCommand (..)
+  , LocalCommand (..)
+  , RemoteAction (..)
+  , TzEnvConfig (..)
+  , RemoteCommand (..)
+  , DeployOptions (..)
+  , NewProposalOptions (..)
+  , NewCouncilOptions (..)
+  , ViaMultisigOptions (..)
+  , VoteForProposalOptions (..)
   , cmdParser
   ) where
 
@@ -15,7 +18,7 @@ import Options.Applicative (command, helper, info, progDesc)
 import qualified Options.Applicative as Opt
 
 import Tezos.Address (Address)
-import Tezos.Crypto (PublicKey, Signature)
+import Tezos.Crypto (KeyHash, PublicKey, Signature)
 
 import Lorentz.Contracts.STKR (TimeConfig (..), Proposal)
 
@@ -38,14 +41,33 @@ data RemoteCommand
   = Deploy DeployOptions
   | PrintStorage (OrAlias Address)
   | NewProposal NewProposalOptions
+  | NewCouncil NewCouncilOptions
+  | VoteForProposal VoteForProposalOptions
+
+data NewCouncilOptions = NewCouncilOptions
+  { ncViaMultisig :: ViaMultisigOptions
+  , ncCouncil :: Either (Text, Int) (Set KeyHash)
+  }
+
+data VoteForProposalOptions = VoteForProposalOptions
+  { vpStkr :: OrAlias Address
+  , vpFrom :: OrAlias Address
+  , vpPkSig :: OrAlias (PublicKey, Signature)
+  , vpEpoch :: Natural
+  , vpProposalId :: Natural
+  }
+
+data ViaMultisigOptions = ViaMultisigOptions
+  { vmoMsig :: OrAlias Address
+  , vmoStkr :: OrAlias Address
+  , vmoFrom :: OrAlias Address
+  , vmoMsigSignatures :: [OrAlias (PublicKey, Signature)]
+  , vmoNonce :: Maybe Natural
+  }
 
 data NewProposalOptions = NewProposalOptions
-  { npMsig :: OrAlias Address
-  , npStkr :: OrAlias Address
-  , npFrom :: OrAlias Address
-  , npMsigSignatures :: [OrAlias (PublicKey, Signature)]
+  { npViaMultisig :: ViaMultisigOptions
   , npProposal :: Proposal
-  , npNonce :: Maybe Natural
   }
 
 data DeployOptions = DeployOptions
@@ -95,6 +117,8 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
         , deploySubprs
         , printStorageSubprs
         , newProposalSubprs
+        , newCouncilSubprs
+        , voteSubprs
         ]
 
     printMsigSubprs = mkCmdPrs "print-multisig" "Print multisig contract" $
@@ -116,12 +140,32 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
     newProposalSubprs = mkRemoteCmdPrs "new-proposal" "Submit new proposal" $
       NewProposal <$>
         (NewProposalOptions
-          <$> addrOrAliasOption "msig"
-          <*> addrOrAliasOption "stkr"
-          <*> addrOrAliasOption "from"
-          <*> many (pkSigOption "msig")
+          <$> viaMultisigOptions
           <*> proposalOption
-          <*> nonceOption
+        )
+
+    viaMultisigOptions = ViaMultisigOptions
+      <$> addrOrAliasOption "msig"
+      <*> addrOrAliasOption "stkr"
+      <*> addrOrAliasOption "from"
+      <*> many (pkSigOption "msig")
+      <*> nonceOption
+
+    newCouncilSubprs = mkRemoteCmdPrs "new-council" "Rotate council keys" $
+      NewCouncil <$>
+        (NewCouncilOptions
+          <$> viaMultisigOptions
+          <*> councilOption
+        )
+
+    voteSubprs = mkRemoteCmdPrs "vote" "Vote for a proposal" $
+      VoteForProposal <$>
+        (VoteForProposalOptions
+          <$> addrOrAliasOption "stkr"
+          <*> addrOrAliasOption "from"
+          <*> pkSigOption "member"
+          <*> epochOption
+          <*> proposalIdOption
         )
 
     printStorageSubprs = mkRemoteCmdPrs "print-storage" "Print storage of a contract" $

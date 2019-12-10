@@ -20,12 +20,17 @@ module Options
   , proposalOption
   , nonceOption
   , timeConfigOption
+  , councilOption
+
+  , proposalIdOption
+  , epochOption
   ) where
 
 import Prelude
 
 import qualified Data.Text as T
 import qualified Data.Map as M
+import qualified Data.Set as S
 import qualified Options.Applicative as Opt
 import Text.Hex (decodeHex)
 import Fmt (pretty)
@@ -33,7 +38,7 @@ import Fmt (pretty)
 import Tezos.Address (Address, parseAddress)
 import Michelson.Text (MText, mkMText)
 import Tezos.Core (Timestamp, timestampFromSeconds)
-import Tezos.Crypto (PublicKey, Signature, parsePublicKey, parseSignature)
+import Tezos.Crypto (KeyHash, PublicKey, Signature, parsePublicKey, parseSignature, parseKeyHash)
 
 import qualified TzTest as Tz
 import TzTest (OrAlias)
@@ -76,6 +81,13 @@ addressReader = Opt.eitherReader $ \addr ->
         (Left . mappend "Failed to parse address: " . pretty)
         Right $
         parseAddress $ toText addr
+
+keyHashReader :: Opt.ReadM KeyHash
+keyHashReader = Opt.eitherReader $ \addr ->
+   either
+        (Left . mappend "Failed to parse key hash: " . pretty)
+        Right $
+        parseKeyHash $ toText addr
 
 data TzEnvConfig
   = YamlFile FilePath
@@ -197,3 +209,35 @@ timeConfigOption = test <|> prod
       const TestTC
         <$> Opt.switch (Opt.long "test" <> Opt.help "Run in test mode")
         <*> startOption <*> durationOption
+
+councilOption :: Opt.Parser (Either (Text, Int) (Set KeyHash))
+councilOption = Left <$> genKeys <|> Right <$> readKeys
+  where
+    readKeys =
+      fmap S.fromList $ many $
+      Opt.option keyHashReader $
+        Opt.long "member" <> Opt.metavar "KEY_HASH"
+          <> Opt.metavar "Hash of council member's key"
+    genKeys =
+      (,)
+      <$>
+      Opt.strOption
+        ( Opt.long "prefix" <> Opt.metavar "STRING"
+          <> Opt.help "Prefix for generated council keys" )
+      <*>
+      Opt.option Opt.auto
+        ( Opt.short 'n' <> Opt.long "councilSize" <> Opt.metavar "INT"
+          <> Opt.help "Size of a council" )
+
+proposalIdOption :: Opt.Parser Natural
+proposalIdOption = Opt.option Opt.auto $
+  Opt.long "proposal"
+    <> Opt.short 'p'
+    <> Opt.help "Id of proposal to vote for"
+    <> Opt.metavar "INT"
+
+epochOption :: Opt.Parser Natural
+epochOption = Opt.option Opt.auto $
+  Opt.long "epoch" <> Opt.short 'e'
+    <> Opt.help "Epoch in which a proposal to vote was created"
+    <> Opt.metavar "INT"

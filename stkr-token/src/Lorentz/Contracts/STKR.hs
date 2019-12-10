@@ -2,6 +2,8 @@ module Lorentz.Contracts.STKR
   ( Parameter (..)
   , Storage (..)
   , TimeConfig (..)
+  , CouncilDataToSign (..)
+  , Blake2BHash (..)
   , stkrContract
   , Proposal
   , Policy
@@ -17,7 +19,7 @@ import Lorentz.Contracts.STKR.Common (TimeConfig (..), ensureOwner,
                                       calcWinner, checkNotStages, checkStage)
 import Lorentz.Contracts.STKR.Error ()
 import Lorentz.Contracts.STKR.Parameter (VoteForProposalParams, Parameter(..))
-import Lorentz.Contracts.STKR.Storage (Blake2BHash, Hash, Policy, Proposal,
+import Lorentz.Contracts.STKR.Storage (Blake2BHash (..), Hash, Policy, Proposal,
                                       Storage (..), URL, blake2B_)
 import Lorentz.Contracts.Common (listAt, ensureSignatureValid)
 

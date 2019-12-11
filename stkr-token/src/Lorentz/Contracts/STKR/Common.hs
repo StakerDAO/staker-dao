@@ -1,65 +1,27 @@
 module Lorentz.Contracts.STKR.Common
-  ( intersectSets
-
-  , isApprovedByMajority
-  , checkApprovedByMajority
-
-  , ensureOwner
+  ( ensureOwner
+  , TimeConfig (..)
+  , getCurrentStage
+  , checkPkCanVote
+  , splitCounter
+  , calcWinner
+  , checkNotStages
+  , checkStage
   ) where
 
+import Prelude (foldr)
 import Lorentz
-import Michelson.Typed.Haskell.Value (IsComparable)
+import Michelson.Text (mkMTextUnsafe)
 
-import Lorentz.Contracts.Common (listToSet)
+import Lorentz.Contracts.Common (countMapEls)
 import Lorentz.Contracts.STKR.Error ()
-import Lorentz.Contracts.STKR.Storage (Storage)
+import Lorentz.Contracts.STKR.Storage (Storage, Policy)
 
-intersectSets :: forall a s. (IsComparable a, KnownCValue a) => (Set a : Set a : s) :-> ((Set a) : s)
-intersectSets = do
-  dip (toNamed #y)
-  toNamed #x
-  emptySet @a; toNamed #result
-  stackType @(("result" :! Set a) : ("x" :! Set a) : ("y" :! Set a) : s)
-  swap
-  stackType @(("x" :! Set a) : ("result" :! Set a) : ("y" :! Set a) : s)
-  fromNamed #x
-  iter (do
-          stackType @(a : ("result" :! Set a) : ("y" :! Set a) : s);
-          duupX @3
-          stackType @(("y" :! Set a) : a : ( "result" :! Set a) : ("y" :! Set a) : s);
-          fromNamed #y
-          duupX @2
-          stackType @(a : (Set a) : a : ("result" :! Set a) : ("y" :! Set a) : s);
-          mem
-          stackType @(Bool : a : ("result" :! Set a) : ("y" :! Set a) : s);
-          if_ (do swap; fromNamed #result; swap; push True; swap; update; toNamed #result) (drop))
-  stackType @(("result" :! Set a) : ("y" :! Set a) : s)
-  fromNamed #result
-  dropX @1
-
-isApprovedByMajority :: forall s. ([(PublicKey, Signature)] : ByteString : [PublicKey] : s) :-> (Bool : s)
-isApprovedByMajority = do
-  map (do
-          stackType @((PublicKey, Signature) : ByteString : [PublicKey] : s)
-          unpair; duupX @3; dig @2; duupX @3
-          stackType @(PublicKey : Signature : ByteString : PublicKey : ByteString : [PublicKey] : s)
-          checkSignature
-          if_
-            hashKey
-            (failCustom #invalidSignature)
-      )
-  listToSet
-  dropX @1
-  dig @1; map hashKey; listToSet;
-  dup; size; push (2 :: Natural); swap; ediv; ifSome (do car; push (1 :: Natural); add) (fail_) -- TODO: impossible exception
-  dip (do intersectSets; size)
-  stackType @(Natural : Natural : s)
-  le
-
-checkApprovedByMajority :: forall s. ([(PublicKey, Signature)] : ByteString : [PublicKey] : s) :-> s
-checkApprovedByMajority = do
-  isApprovedByMajority
-  if_ (nop) (do push (); failCustom #majorityQuorumNotReached)
+data TimeConfig =
+    TestTC { _start :: Timestamp
+           , _stageDuration :: Natural
+           }
+  | ProdTC { _firstYear :: Natural }
 
 ensureOwner :: Storage ': s :-> s
 ensureOwner = do
@@ -69,3 +31,126 @@ ensureOwner = do
   if IsEq
   then drop
   else failCustom #senderCheckFailed
+
+getCurrentStage
+  :: TimeConfig -> s :-> (Natural & s)
+getCurrentStage TestTC {..} = do
+  push _stageDuration
+  push _start
+  now
+  sub
+  isNat
+  if IsSome
+    then nop
+    else
+      failUnexpected $ mkMTextUnsafe
+        "getCurrentStage: now < start"
+  ediv
+  if IsSome
+    then nop
+    else
+      failUnexpected $ mkMTextUnsafe
+        "getCurrentStage: division by stageDuration produced an error"
+  car
+getCurrentStage _ = error "Not implemented yet"
+
+checkPkCanVote
+  :: KeyHash & Storage & s :-> s
+checkPkCanVote = do
+  dup
+  dipN @2 (getField #councilKeys)
+  dug @2
+  mem
+  stackType @(Bool & KeyHash & Storage & _)
+  if Holds
+    then do
+      dip (toField #votes)
+      get
+      if IsSome
+        then failCustom #voteAlreadySubmitted
+        else nop
+    else failCustom #notInCouncil
+
+splitCounter
+  :: Natural & s
+      :-> "epoch" :! Natural & "stage" :! Natural & s
+splitCounter = do
+  push @Natural 4
+  swap
+  ediv
+  if IsSome
+    then do
+      unpair
+      toNamed #epoch
+      dip (toNamed #stage)
+    else
+      failUnexpected $ mkMTextUnsafe
+        "splitCounter: division by 4 produced an error"
+
+calcWinner
+  :: Storage & s :-> Maybe Policy & s
+calcWinner = do
+  getField #votes
+  countMapEls (fromNamed #proposalId)
+  none
+  swap
+  dig @2
+  getField #councilKeys # size # toNamed #sz
+  swap
+  dip swap
+  toField #proposals
+  push @Natural 0
+  swap
+  iter $ do
+    car # fromNamed #proposal
+    dip $ do
+      dup
+      dip $ do
+        dip $ dup # dug @3
+        get
+        if IsSome then nop else push 0
+        push @Natural 2
+        mul
+        dip (dup # fromNamed #sz)
+        compare # gt0
+    dig @4
+    dig @3
+    if Holds
+      then
+        if IsSome
+          then
+            failUnexpected $ mkMTextUnsafe
+              "calcWinner: more than one winner"
+          else do
+            cdr
+            fromNamed #newPolicy
+            some
+      else dip drop
+    dug @3
+    dip swap
+  drop # drop # drop
+
+checkNotStages
+  :: [Natural] -> Storage & s :-> s
+checkNotStages is = foldr f nop is # drop
+  where
+    f i action = action # dup # checkStage' (push i # compare # neq0)
+
+checkStage
+  :: Natural -> Storage & s :-> s
+checkStage i = checkStage' $ push i # compare # eq0
+
+checkStage'
+  :: (forall s' . Natural & s' :-> Bool & s')
+  -> Storage & s :-> s
+checkStage' predicate = do
+  toField #stageCounter
+  dup
+  splitCounter # drop # fromNamed #stage
+  predicate
+  if Holds
+    then drop
+    else do
+      toNamed #stageCounter
+      failCustom #wrongStage
+

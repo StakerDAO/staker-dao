@@ -55,7 +55,7 @@ Alternatively you can take one of keys mentioned on
 4. Originate contract:
 
 ```
- ./result/bin/stkr-token-exe deploy --tzclient ../tezos-client -A jupiter.serokell.io -P 8732 --contractName mycontract --from tz1PPPYChg5xXHpGzygnNkmzPd1hyVRMxvJf
+./result/bin/stkr-token-exe deploy --tzclient ./tezos-client -A jupiter.serokell.io -P 8732 --msigAlias msig1 --stkrAlias stkr1 --from tz1PPPYChg5xXHpGzygnNkmzPd1hyVRMxvJf test --start 1575877000 --duration 600
 ```
 
 You will see output like:

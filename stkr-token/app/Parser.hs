@@ -15,7 +15,7 @@ import qualified Options.Applicative as Opt
 
 import Tezos.Address (Address)
 
-import qualified TzTest as Tz
+import Lorentz.Contracts.STKR (TimeConfig (..))
 
 import Options
 
@@ -24,16 +24,13 @@ data CliCommand
   | Remote RemoteAction
 
 data LocalCommand
-  = PrintContract (Maybe FilePath)
+  = PrintStkr (Maybe FilePath)
+  | PrintMultisig (Maybe FilePath)
 
 data RemoteAction = RemoteAction
   { tzEnvConfig :: TzEnvConfig
   , remoteCmd ::RemoteCommand
   }
-
-data TzEnvConfig
-  = YamlFile FilePath
-  | CliArgs Tz.Env
 
 data RemoteCommand
   = Deploy DeployOptions
@@ -46,12 +43,11 @@ data DeployOptions = DeployOptions
   , teamPksFiles :: [FilePath]
   }
 
-
 mkCmdPrs
   :: String
   -> String
-  -> Opt.Parser CliCommand
-  -> Opt.Mod Opt.CommandFields CliCommand
+  -> Opt.Parser a
+  -> Opt.Mod Opt.CommandFields a
 mkCmdPrs name desc prs =
   command name $
   info (helper <*> prs) $
@@ -64,22 +60,7 @@ mkRemoteCmdPrs
   -> Opt.Mod Opt.CommandFields CliCommand
 mkRemoteCmdPrs name desc prs =
   mkCmdPrs name desc $
-    Remote <$> (RemoteAction <$> (envPrs <|> configPrs) <*> prs)
-  where
-    envPrs =
-      CliArgs <$>
-      (Tz.Env
-      <$> (Opt.strOption $ Opt.long "tzclient")
-      <*> (Opt.strOption $ Opt.short 'A')
-      <*> (Opt.option (Opt.auto @Natural) $ Opt.short 'P')
-      )
-
-    configPrs =
-      YamlFile <$>
-      (Opt.strOption $ mconcat
-        [ Opt.short 'c'
-        , Opt.long "config"
-        ])
+    Remote <$> (RemoteAction <$> tzEnvOptions <*> prs)
 
 exeDesc :: [Char]
 exeDesc =
@@ -91,23 +72,38 @@ deployDesc =
   "Deploy contract to Tezos network with supplied set of team keys "
   <> "(each key is provided as standalone PK file)."
 
-cmdParser :: Opt.ParserInfo (CliCommand)
-cmdParser = info (helper <*> subparsers) (progDesc exeDesc)
+cmdParser :: Opt.ParserInfo (CliCommand, TimeConfig)
+cmdParser = info (helper <*> toplevel) (progDesc exeDesc)
   where
-    subparsers = Opt.subparser . mconcat $
-        [ printSubprs
+    toplevel = (,) <$> cmdImpl <*> tcImpl
+
+    cmdImpl :: Opt.Parser CliCommand
+    cmdImpl = Opt.subparser . mconcat $
+        [ printMsigSubprs
+        , printStkrSubprs
         , deploySubprs
         , printStorageSubprs
         ]
 
-    printSubprs = mkCmdPrs "printContract" "Print contract to stdout" $
-      Local . PrintContract <$> fileOutputOption
+    tcImpl :: Opt.Parser TimeConfig
+    tcImpl = Opt.subparser (test <> prod)
+
+    test = mkCmdPrs "prod" "Run in production mode" $
+              ProdTC <$> startYearOption
+    prod = mkCmdPrs "test" "Run in test mode" $
+              TestTC <$> startOption <*> durationOption
+
+    printMsigSubprs = mkCmdPrs "printMultisig" "Print multisig contract" $
+      Local <$> (PrintMultisig <$> fileOutputOption)
+
+    printStkrSubprs = mkCmdPrs "printStkr" "Print STKR contract" $
+      Local <$> (PrintStkr <$> fileOutputOption)
 
     deploySubprs = mkRemoteCmdPrs "deploy" deployDesc $
       Deploy <$>
         (DeployOptions
          <$> contractAliasOption "msig"
-         <*> contractAliasOption "token"
+         <*> contractAliasOption "stkr"
          <*> addressOption "from"
          <*> many (fileArg)
         )

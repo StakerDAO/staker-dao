@@ -24,6 +24,7 @@ dependencies:
   - base-noprelude >= 4.7 && < 5
   - morley
   - morley-prelude
+  - named
 
 library:
   <<: *lorentz-lib-common

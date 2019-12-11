@@ -18,7 +18,8 @@ import TzTest (TzTest)
 import qualified TzTest as Tz
 
 import qualified Lorentz.Contracts.Client as Client
-import Lorentz.Contracts.STKR (stkrContract)
+import Lorentz.Contracts.STKR (TimeConfig, stkrContract)
+import Lorentz.Contracts.Multisig (multisigContract)
 import qualified Lorentz.Contracts.STKR.Client as STKR
 
 
@@ -28,21 +29,22 @@ import Parser
 
 main :: IO ()
 main = do
-  cmd <- Opt.execParser cmdParser
+  (cmd, tc) <- Opt.execParser cmdParser
   case cmd of
-    Local localCmd -> localCmdRunner localCmd
+    Local localCmd -> localCmdRunner tc localCmd
     Remote RemoteAction{..} -> do
       env <- case tzEnvConfig of
         YamlFile path -> Yaml.decodeFileThrow @IO @Tz.Env path
         CliArgs tzEnv -> pure tzEnv
-      Tz.runTzTest (remoteCmdRunner remoteCmd) env
+      Tz.runTzTest (remoteCmdRunner tc remoteCmd) env
 
-localCmdRunner :: LocalCommand -> IO ()
-localCmdRunner = \case
-    PrintContract out -> maybe putStrLn writeFileUtf8 out $ L.printLorentzContract False stkrContract
+localCmdRunner :: TimeConfig -> LocalCommand -> IO ()
+localCmdRunner tc = \case
+    PrintMultisig out -> maybe putStrLn writeFileUtf8 out $ L.printLorentzContract False multisigContract
+    PrintStkr out -> maybe putStrLn writeFileUtf8 out $ L.printLorentzContract False (stkrContract tc)
 
-remoteCmdRunner :: RemoteCommand -> TzTest ()
-remoteCmdRunner = \case
+remoteCmdRunner :: TimeConfig -> RemoteCommand -> TzTest ()
+remoteCmdRunner timeConfig = \case
   Deploy DeployOptions{..} -> do
     let readSkFromFile filename = readFileUtf8 filename >>= either (fail . pretty) pure . parsePublicKey . T.strip
     teamPks <- if null teamPksFiles

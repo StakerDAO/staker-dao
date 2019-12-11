@@ -65,7 +65,7 @@ checkSignatures = do
     unpair;
     stackType @(PublicKey : Signature : ByteString : Set KeyHash : s)
     duupX @4; duupX @2; ensureKeyEligible
-    dipN @2 dup; ensureSignatureValid
+    dipN @2 dup; dup ; dip ensureSignatureValid; hashKey
 
   stackType @([KeyHash] : ByteString : Set KeyHash : s)
   dip drop
@@ -99,15 +99,6 @@ checkSignatures = do
       dip drop
       stackType @(ValueToSign : _)
       pack
-
-    ensureSignatureValid
-      :: PublicKey : Signature : ByteString : s1 :-> KeyHash ': s1
-    ensureSignatureValid = do
-      dup; dip checkSignature
-      swap
-      if Holds
-      then hashKey
-      else failCustom #invalidSignature
 
     ensureKeyEligible :: PublicKey : Set KeyHash : s1 :-> s1
     ensureKeyEligible = do

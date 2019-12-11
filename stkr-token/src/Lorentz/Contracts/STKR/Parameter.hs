@@ -1,21 +1,22 @@
 module Lorentz.Contracts.STKR.Parameter
   ( Parameter (..)
-  , AnnounceDecisionParams
+  , VoteForProposalParams
   ) where
 
 import Lorentz
 
-import Lorentz.Contracts.STKR.Storage (Hash, URL)
+import Lorentz.Contracts.STKR.Storage (Proposal)
 
-type AnnounceDecisionParams =
-  ( "description" :! MText
-  , "approvals" :! [(PublicKey, Signature)]
-  , "newUrls" :! Map MText (Hash, URL)
+type VoteForProposalParams =
+  ( "proposalId" :! Natural
+  , "votePk" :! PublicKey
+  , "voteSig" :! Signature
   )
 
 data Parameter
-  = NewCouncil [PublicKey]
-  | AnnounceDecision AnnounceDecisionParams
+  = NewCouncil (Set KeyHash)
+  | NewProposal Proposal
+  | VoteForProposal VoteForProposalParams
   deriving stock Generic
   deriving anyclass IsoValue
 

@@ -6,7 +6,7 @@
 
 .PHONY: dev test build repl shell
 
-# Build everything 
+# Build everything
 dev:
 	nix-shell --run 'cd stkr-token && hpack && cabal build'
 

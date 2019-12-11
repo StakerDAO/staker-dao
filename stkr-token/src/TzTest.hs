@@ -12,6 +12,7 @@ module TzTest
   , originateContract
 
   , generateKey
+  , importSecretKey
   , getStorage
 
   , getChainId
@@ -35,7 +36,7 @@ import Lorentz.Print (printLorentzContract, printLorentzValue)
 import Michelson.Typed (IsoValue, ToT)
 import Tezos.Address (Address, formatAddress, parseAddress)
 import Tezos.Core (Mutez, ChainId, parseChainId)
-import Tezos.Crypto (PublicKey, parsePublicKey)
+import Tezos.Crypto (PublicKey, parsePublicKey, SecretKey, formatSecretKey)
 
 data Env = Env
   { envTezosClientCmd :: Text
@@ -131,6 +132,13 @@ generateKey alias = do
   -- Ex: New contract KT1MNzB6r9eFiYtFbhnRUgnuC83vwSUqERWG originated.
   let pk = (words keyLine) ^. ix 2
   either (fail . (("Error for PK " <> toString pk) <>) . pretty) pure $ parsePublicKey pk
+
+importSecretKey :: Text -> SecretKey -> TzTest Address
+importSecretKey alias sk = do
+  let skUri = "unencrypted:" <> formatSecretKey sk
+  output <- exec $ ["import", "secret", "key", alias, skUri, "--force"]
+  let addrStr = words output ^. ix 3
+  either (fail . pretty) pure (parseAddress addrStr)
 
 getStorage
   :: forall st.

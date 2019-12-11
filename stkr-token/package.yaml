@@ -48,6 +48,8 @@ executables:
     <<: *exec-common
 
     dependencies:
+      - aeson
+      - yaml
       - base-noprelude >= 4.7 && < 5
       - containers
       - fmt
@@ -64,6 +66,7 @@ executables:
     source-dirs: test-end2end
 
     dependencies:
+      - aeson
       - base-noprelude >= 4.7 && < 5
       - containers
       - hspec
@@ -73,7 +76,9 @@ executables:
       - morley-prelude
       - tasty
       - tasty-hspec
+      - text
       - time
+      - yaml
 
 
 tests:

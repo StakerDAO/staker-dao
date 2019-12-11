@@ -4,14 +4,13 @@
 
 # Defines utilities for other Makefiles
 
-.PHONY: dev test build repl shell
+.PHONY: dev test build repl shell end2end
+
+CABAL_DEV_FLAGS =-O0 --disable-documentation
 
 # Build everything
 dev:
 	nix-shell --run 'cabal build'
-
-end2end:
-	nix-shell --run 'cabal run stkr-token-test-end2end'
 
 # Run tests in all packages which have them.
 test:
@@ -34,3 +33,8 @@ build:
 
 run:
 	nix-shell --run "cabal run stkr-token-exec"
+
+end2end:
+	@if [[ -z "$$TEZOS_CLIENT" ]]; then nix-build end2end.nix --arg useTezosDerivation true && ./result; \
+	else nix-build end2end.nix --arg useTezosDerivation false --argstr tezosClientPath "$$TEZOS_CLIENT" && ./result; \
+	fi

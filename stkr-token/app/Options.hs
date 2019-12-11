@@ -9,7 +9,7 @@ module Options
   , addressOption
 
   , TzEnvConfig (..)
-  , tzEnvOptions
+  , tzNodeAddressOptions
 
   , pkSigOption
 
@@ -96,16 +96,15 @@ keyHashReader = Opt.eitherReader $ \addr ->
 
 data TzEnvConfig
   = YamlFile FilePath
-  | CliArgs Tz.Env
+  | CliArgs Tz.NodeAddress
 
-tzEnvOptions :: Opt.Parser TzEnvConfig
-tzEnvOptions = envPrs <|> configPrs
+tzNodeAddressOptions :: Opt.Parser TzEnvConfig
+tzNodeAddressOptions = envPrs <|> configPrs
   where
     envPrs =
       CliArgs <$>
-      (Tz.Env
-      <$> (Opt.strOption $ Opt.long "tzclient")
-      <*> (Opt.strOption $ Opt.short 'A')
+      (Tz.NodeAddress
+      <$> (Opt.strOption $ Opt.short 'A')
       <*> (Opt.option (Opt.auto @Natural) $ Opt.short 'P')
       )
 

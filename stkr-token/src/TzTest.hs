@@ -5,7 +5,9 @@ module TzTest
   , runTzTest
 
   , Env(..)
-  , readEnvFromFile
+  , NodeAddress(..)
+  , getTezosClientCmd
+  , mkEnv
 
   , TransferP(..)
   , transfer
@@ -34,49 +36,67 @@ import Prelude hiding (hPutStrLn, unlines)
 import Control.Concurrent (forkIO)
 import qualified Control.Exception as E
 import Data.Aeson (FromJSON)
+import Data.List (unlines)
 import Data.Singletons (SingI)
 import qualified Data.Text as T
 import Data.Text.Lazy (toStrict)
 import qualified Data.Yaml as Yaml
 import Fmt (Buildable, pretty)
 import Lens.Micro (ix)
+import System.Environment (lookupEnv)
 import System.Environment (getEnvironment)
 import System.Exit (ExitCode)
-import Data.List (unlines)
-import System.IO
-  (hFlush, hGetLine, hPutStrLn)
+import System.IO (hFlush, hGetLine, hPutStrLn)
 import System.Process
   (CreateProcess(..), StdStream(..), createProcess, proc, waitForProcess)
 
 import qualified Crypto.Error as CE
 import qualified Crypto.PubKey.Ed25519 as Ed25519
 import Lorentz
-  (Contract, NicePrintedValue, NiceStorage, ParameterEntryPoints,
-  parseLorentzValue, lPackValue)
+  (Contract, NicePrintedValue, NiceStorage, ParameterEntryPoints, lPackValue,
+  parseLorentzValue)
 import Lorentz.Print (printLorentzContract, printLorentzValue)
 import Michelson.Typed (IsoValue, ToT)
 import Tezos.Address (Address, formatAddress, parseAddress)
 import Tezos.Core
-  (ChainId, Mutez (..), Timestamp, parseChainId, parseTimestamp, unsafeMkMutez)
+  (ChainId, Mutez(..), Timestamp, parseChainId, parseTimestamp, unsafeMkMutez)
 import Tezos.Crypto
-  (KeyHash, PublicKey(..), SecretKey, Signature(..), blake2b, formatSecretKey,
-  parseKeyHash, parsePublicKey, parseSecretKey, sign, toPublic, encodeBase58Check)
+  (KeyHash, PublicKey(..), SecretKey, Signature(..), blake2b,
+  encodeBase58Check, formatSecretKey, parseKeyHash, parsePublicKey,
+  parseSecretKey, sign, toPublic)
 
 import Data.Maybe (fromJust)
 import System.Console.Haskeline (defaultSettings, getPassword, runInputT)
 
 import DecipherTzEncKey
 
-data Env = Env
-  { envTezosClientCmd :: Text
-  , envNode :: Text
-  , envNodePort :: Natural
+data NodeAddress = NodeAddress
+  { naHost :: Text
+  , naPort :: Natural
   }
   deriving stock Generic
   deriving anyclass FromJSON
 
-readEnvFromFile :: FilePath -> IO Env
-readEnvFromFile path = Yaml.decodeFileThrow @IO @Env path
+data Env = Env
+  { envTezosClientCmd :: Text
+  , envNodeAddr :: NodeAddress
+  }
+
+getTezosClientCmd :: IO Text
+getTezosClientCmd = lookupEnv "TEZOS_CLIENT" >>=
+    maybe
+      (fail "TEZOS_CLIENT enviromet variable is missing")
+      (pure . T.pack)
+
+
+mkEnv :: FilePath -> IO Env
+mkEnv nodeAddressConfigPath = do
+  nodeAddr <- Yaml.decodeFileThrow nodeAddressConfigPath
+  tezosClientCmd <- getTezosClientCmd
+  pure $ Env
+    { envTezosClientCmd = tezosClientCmd
+    , envNodeAddr = nodeAddr
+    }
 
 type TzTest a = ReaderT Env IO a
 
@@ -150,11 +170,11 @@ execWithShell
   -> (IO (String, String) -> IO (String, String))
   -> TzTest (Text, Text)
 execWithShell verbosity args shellTransform = do
-  Env{..} <- ask
+  Env{envNodeAddr = NodeAddress{..}, ..} <- ask
   let outputShell = do
         let allargs =
-              [ "-A", envNode
-              , "-P", show envNodePort
+              [ "-A", naHost
+              , "-P", show naPort
               ] <> args
         -- putTextLn $ "EXEC!: " <> envTezosClientCmd <> " " <> T.intercalate " " allargs
         e <- getEnvironment

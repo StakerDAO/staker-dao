@@ -22,14 +22,14 @@ module Parser
 
 import Prelude
 
-import Options.Applicative (command, helper, info, progDesc, optional)
+import Options.Applicative (command, helper, info, optional, progDesc)
 import qualified Options.Applicative as Opt
 
 import Tezos.Address (Address)
-import Tezos.Crypto (KeyHash, PublicKey, Signature)
 import Tezos.Core (Mutez)
+import Tezos.Crypto (KeyHash, PublicKey, Signature)
 
-import Lorentz.Contracts.STKR (TimeConfig (..))
+import Lorentz.Contracts.STKR (Proposal, TimeConfig(..))
 
 import Options
 
@@ -173,7 +173,7 @@ mkRemoteCmdPrs
   -> Opt.Mod Opt.CommandFields CliCommand
 mkRemoteCmdPrs name desc prs =
   mkCmdPrs name desc $
-    Remote <$> (RemoteAction <$> tzEnvOptions <*> prs)
+    Remote <$> (RemoteAction <$> tzNodeAddressOptions <*> prs)
 
 exeDesc :: [Char]
 exeDesc =

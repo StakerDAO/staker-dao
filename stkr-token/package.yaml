@@ -82,10 +82,12 @@ executables:
       - base-noprelude >= 4.7 && < 5
       - containers
       - hspec
+      - hspec-core
       - hspec-expectations
       - stkr-token
       - morley
       - morley-prelude
+      - microlens
       - tasty
       - tasty-hspec
       - text

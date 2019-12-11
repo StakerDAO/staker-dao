@@ -1,19 +1,15 @@
-{-# LANGUAGE DeriveAnyClass, DerivingStrategies #-}
 
 module Test.Lorentz.Contracts.STKR.Integrational
-  ( spec_NetworkTest
+  ( networkTestSpec
+  , TestOptions(..)
   ) where
 
 import Prelude
 
 import Control.Concurrent (threadDelay)
-import Data.Aeson (FromJSON)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Data.Text as T
-import Data.Time.Clock (getCurrentTime)
-import qualified Data.Yaml as Yaml
-import Fmt ((+|), (|+), pretty)
+import Fmt (pretty, (+|), (|+))
 import Lorentz (lPackValue)
 import Michelson.Text (mkMTextUnsafe)
 import Test.Hspec (Expectation, Spec, it, runIO, shouldBe)
@@ -21,7 +17,8 @@ import Text.Hex (decodeHex)
 
 import Tezos.Address (Address)
 import qualified Tezos.Core as Tz
-import Tezos.Crypto (PublicKey, SecretKey, blake2b, detSecretKey, hashKey, parseSecretKey, toPublic)
+import Tezos.Crypto
+  (PublicKey, SecretKey, blake2b, detSecretKey, hashKey, toPublic)
 import TzTest (TzTest, runTzTest)
 import qualified TzTest as Tz
 
@@ -30,48 +27,16 @@ import qualified Lorentz.Contracts.STKR as STKR
 import qualified Lorentz.Contracts.STKR.Client as STKR
 
 data TestOptions = TestOptions
-  { faucetName :: Text
+  { faucet :: Address
   , msigAlias :: Text
   , stkrAlias :: Text
   , tzTestEnv :: Tz.Env
+  , stageDuration :: Natural
   }
-
-data AccountData = AccountData
-  { hash :: Address
-  , publicKey :: PublicKey
-  , secretKey :: Text
-  }
-  deriving stock Generic
-  deriving anyclass FromJSON
 
 newKeypair :: ByteString -> (SecretKey, PublicKey)
 newKeypair bs = let sk = detSecretKey bs in (sk, toPublic sk)
 
-loadTestAccount :: Text -> IO AccountData
-loadTestAccount name =
-  Yaml.decodeFileThrow @IO @AccountData (T.unpack $ "test-accounts/" <> name <> ".yaml")
-
-importTestAccount :: Text -> TzTest Address
-importTestAccount name = do
-  AccountData{..} <- liftIO $ loadTestAccount name
-  sk <- either
-    (\e -> fail $ "Error importing test account "+|name|+": "+|e|+"") pure $
-    parseSecretKey secretKey
-  Tz.importSecretKey name sk
-
-expectStorage :: Address -> (STKR.AlmostStorage -> Expectation) -> TzTest ()
-expectStorage addr check = STKR.getStorage addr >>= lift . check
-
-spec_NetworkTest :: Spec
-spec_NetworkTest = do
-  timestamp <- runIO $ show <$> getCurrentTime
-  tzTestEnv <- runIO $ Tz.readEnvFromFile "test-config.yaml"
-  networkTestSpec $ TestOptions
-    { faucetName = "faucet"
-    , msigAlias = "msig-test" <> timestamp
-    , stkrAlias = "stkr-test" <> timestamp
-    , ..
-    }
 
 tezosWpUrlHash :: (STKR.Sha256Hash, STKR.URL)
 tezosWpUrlHash = (STKR.Sha256Hash hash_, url)
@@ -80,8 +45,8 @@ tezosWpUrlHash = (STKR.Sha256Hash hash_, url)
     hash_ = fromMaybe (error "tezosWpUrlHash: unexpected") . decodeHex $
       "be7663e0ef87d51ab149a60dfad4df5940d30395ba287d9907f8d66ce5061d96"
 
-stageDuration :: Num a => a
-stageDuration = 500
+expectStorage :: Address -> (STKR.AlmostStorage -> Expectation) -> TzTest ()
+expectStorage addr check = STKR.getStorage addr >>= lift . check
 
 networkTestSpec :: TestOptions -> Spec
 networkTestSpec TestOptions{..} = do
@@ -102,9 +67,9 @@ networkTestSpec TestOptions{..} = do
   let startSeconds = Tz.timestampToSeconds start
   let timeConfig = STKR.TestTC start stageDuration
 
-  let waitForStage (i :: Int) = putTextLn ("Waiting for stage "+|i|+"...") >> loop
+  let waitForStage (i :: Natural) = putTextLn ("Waiting for stage "+|i|+"...") >> loop
         where
-          waitTill = startSeconds + i*stageDuration
+          waitTill = startSeconds + i * stageDuration
           pollCycleDuration = 2000000 -- 2 seconds
           loop = do
             headTime <- Tz.timestampToSeconds <$> Tz.getHeadTimestamp
@@ -116,7 +81,7 @@ networkTestSpec TestOptions{..} = do
                 " which is bigger than stage duration."
               putTextLn $ "This test is likely to fail :("
             if headTime < waitTill
-            then lift (threadDelay pollCycleDuration) >> loop
+            then lift (threadDelay . fromIntegral $ pollCycleDuration) >> loop
             else do
               putTextLn $ "Stage "+|i|+" block reached chain "+|now - startSeconds|+
                 " seconds after start."
@@ -125,7 +90,6 @@ networkTestSpec TestOptions{..} = do
   let newUrls = Map.singleton (mkMTextUnsafe "tezos-wp") tezosWpUrlHash
   let newProposal = ( #description (mkMTextUnsafe "First")
                     , #newPolicy (#urls newUrls))
-  faucet <- runIO $ tzTest $ importTestAccount faucetName
 
   runIO $ putTextLn "Deploying contracts..."
   ca@ContractAddresses{..} <-
@@ -162,7 +126,7 @@ networkTestSpec TestOptions{..} = do
     let vpo =
           VoteForProposalOptions
             { vpEpoch = 0
-            , vpProposalId = 1
+            , vpProposalId = 0
             , vpFrom = faucet
             , vpStkr = stkrAddr
             , vpSign = pure . signBytes sk6
@@ -170,4 +134,4 @@ networkTestSpec TestOptions{..} = do
     voteForProposal vpo
     voteForProposal vpo {vpSign = pure . signBytes sk7}
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} ->
-      votes `shouldBe` Map.fromSet (const $ #proposalId 1) newCouncilKeys
+      votes `shouldBe` Map.fromSet (const $ #proposalId 0) newCouncilKeys

@@ -38,8 +38,8 @@ main = do
     Local localCmd -> localCmdRunner localCmd
     Remote RemoteAction{..} -> do
       env <- case tzEnvConfig of
-        YamlFile path -> Tz.readEnvFromFile path
-        CliArgs tzEnv -> pure tzEnv
+        YamlFile path -> Tz.mkEnv path
+        CliArgs tzEnv -> Tz.Env <$> Tz.getTezosClientCmd <*> pure tzEnv
       Tz.runTzTest (remoteCmdRunner remoteCmd) env
 
 localCmdRunner :: LocalCommand -> IO ()

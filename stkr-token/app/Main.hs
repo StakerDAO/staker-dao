@@ -4,7 +4,6 @@ module Main
 
 import Prelude
 
-import Named (arg)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -53,28 +52,32 @@ callViaMultisig stkrParam ViaMultisigOptions {..} = do
   fromAddr <- Tz.resolve' Tz.AddressAlias vmoFrom
   msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
   stkrAddr <- Tz.resolve' Tz.ContractAlias vmoStkr
-  let order = Msig.mkCallOrderUnsafe stkrAddr stkrParam
-  chainId <- Tz.getMainChainId
-  let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage msigAddr
-  nonce <- maybe getNonce pure vmoNonce
-  let toSign = Msig.ValueToSign chainId nonce order
-  let bytes = L.lPackValue toSign
-  pkSigs <- mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
-  let param = Msig.Parameter order nonce pkSigs
-  Tz.call fromAddr msigAddr param
+  Client.callViaMultisig stkrParam $ Client.ViaMultisigOptions
+    { vmoFrom = fromAddr
+    , vmoMsig = msigAddr
+    , vmoStkr = stkrAddr
+    , vmoSign =
+        \bytes ->
+        mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
+    , ..
+    }
 
 remoteCmdRunner :: RemoteCommand -> TzTest ()
 remoteCmdRunner = \case
   Deploy DeployOptions{..} -> do
-    let readSkFromFile filename = readFileUtf8 filename >>= either (fail . pretty) pure . parsePublicKey . T.strip
-    teamPks <- if null teamPksFiles
-                then mapM (\i -> Tz.generateKey $ msigAlias <> "_key_" <> show (i :: Int)) [1..3]
-                else liftIO $ traverse readSkFromFile teamPksFiles
+    let readSkFromFile filename =
+          readFileUtf8 filename >>=
+          either (fail . pretty) pure . parsePublicKey . T.strip
+    let msigKeyName i = msigAlias <> "_key_" <> show (i :: Int)
+    teamKeys <-
+      fmap (Set.fromList . fmap hashKey) $
+        if null teamPksFiles
+        then mapM (Tz.generateKey . msigKeyName) [1..3]
+        else liftIO $ traverse readSkFromFile teamPksFiles
     originator' <- Tz.resolve' Tz.AddressAlias originator
     addrs <- Client.deploy $
       Client.DeployOptions
         { councilPks = []
-        , teamKeys = Set.fromList $ hashKey <$> teamPks
         , originator = originator'
         , ..
         }
@@ -89,16 +92,12 @@ remoteCmdRunner = \case
   VoteForProposal VoteForProposalOptions {..} -> do
     fromAddr <- Tz.resolve' Tz.AddressAlias vpFrom
     stkrAddr <- Tz.resolve' Tz.ContractAlias vpStkr
-    storage <- Tz.getStorage stkrAddr
-    proposalHash <-
-      maybe (fail $ "Proposal id not found " <> show vpProposalId) pure .
-      fmap (arg #proposalHash . snd) . safeHead . snd . splitAt (fromIntegral vpProposalId - 1) $
-      STKR.proposals storage
-    let curStage = vpEpoch*4 + 2
-    let toSignB = L.lPackValue $ STKR.CouncilDataToSign proposalHash stkrAddr curStage
-    (pk, sig) <- Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
-    Tz.call fromAddr stkrAddr $ STKR.VoteForProposal
-      (#proposalId vpProposalId, #votePk pk, #voteSig sig)
+    Client.voteForProposal $ Client.VoteForProposalOptions
+      { vpFrom = fromAddr
+      , vpStkr = stkrAddr
+      , vpSign = \toSignB -> Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
+      , ..
+      }
   PrintStorage addr_ ->
     Tz.resolve' Tz.ContractAlias addr_ >>=
     STKR.getStorage >>= liftIO . T.putStrLn . pretty

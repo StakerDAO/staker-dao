@@ -72,7 +72,7 @@ data NewProposalOptions = NewProposalOptions
 
 data DeployOptions = DeployOptions
   { msigAlias :: Text
-  , tokenAlias :: Text
+  , stkrAlias :: Text
   , originator :: OrAlias Address
   , teamPksFiles :: [FilePath]
   , timeConfig :: TimeConfig

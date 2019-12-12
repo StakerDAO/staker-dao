@@ -1,12 +1,19 @@
 module Lorentz.Contracts.Client
   ( DeployOptions (..)
   , deploy
+  , multisignBytes
   , multisignValue
+  , signBytes
   , ContractAddresses (..)
+  , ViaMultisigOptions (..)
+  , callViaMultisig
+  , VoteForProposalOptions (..)
+  , voteForProposal
   ) where
 
 import Prelude
 
+import Named (arg)
 import Fmt (Buildable(..), Builder, mapF)
 
 import Lorentz.Constraints (NicePackedValue)
@@ -15,14 +22,16 @@ import Tezos.Address (Address)
 import Tezos.Crypto (KeyHash, PublicKey, SecretKey, Signature, sign, toPublic)
 
 import TzTest (TzTest)
+import qualified TzTest as Tz
 
 import qualified Lorentz.Contracts.Multisig.Client as Msig
+import qualified Lorentz.Contracts.Multisig as Msig
 import qualified Lorentz.Contracts.STKR.Client as STKR
 import qualified Lorentz.Contracts.STKR as STKR
 
 data DeployOptions = DeployOptions
   { msigAlias :: Text
-  , tokenAlias :: Text
+  , stkrAlias :: Text
   , originator :: Address
   , councilPks :: [PublicKey]
   , teamKeys :: Set KeyHash
@@ -30,13 +39,13 @@ data DeployOptions = DeployOptions
   }
 
 data ContractAddresses = ContractAddresses
-  { tokenAddr :: Address
+  { stkrAddr :: Address
   , msigAddr :: Address
   }
 
 instance Buildable ContractAddresses where
   build ContractAddresses{..} = mapF @[(Text, Builder)] $
-    [ ("token", build tokenAddr)
+    [ ("token", build stkrAddr)
     , ("multisig", build msigAddr)
     ]
 
@@ -47,8 +56,8 @@ deploy DeployOptions{..} = do
     , teamKeys = teamKeys
     , ..
     }
-  tokenAddr <- STKR.deploy $ STKR.DeployOptions
-    { contractAlias = tokenAlias
+  stkrAddr <- STKR.deploy $ STKR.DeployOptions
+    { contractAlias = stkrAlias
     , teamMultisig = msigAddr
     , ..
     }
@@ -59,6 +68,59 @@ multisignValue
   => [SecretKey] -- Sks to be signed with
   -> a           -- Value to be signed
   -> [(PublicKey, Signature)]
-multisignValue opsSks newCouncil =
-  let packedCouncil = lPackValue newCouncil
-  in (\sk -> (toPublic sk, sign sk packedCouncil)) <$> opsSks
+multisignValue opsSks = multisignBytes opsSks . lPackValue
+
+multisignBytes
+  :: [SecretKey] -- Sks to be signed with
+  -> ByteString  -- Value to be signed
+  -> [(PublicKey, Signature)]
+multisignBytes opsSks bytes =
+  opsSks <&> flip signBytes bytes
+
+signBytes
+  :: SecretKey -- Sk to be signed with
+  -> ByteString  -- Value to be signed
+  -> (PublicKey, Signature)
+signBytes sk bytes =
+  (toPublic sk, sign sk bytes)
+
+callViaMultisig :: STKR.Parameter -> ViaMultisigOptions -> TzTest ()
+callViaMultisig stkrParam ViaMultisigOptions {..} = do
+  let order = Msig.mkCallOrderUnsafe vmoStkr stkrParam
+  chainId <- Tz.getMainChainId
+  let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage vmoMsig
+  nonce <- maybe getNonce pure vmoNonce
+  let toSign = Msig.ValueToSign chainId nonce order
+  let bytes = lPackValue toSign
+  pkSigs <- vmoSign bytes
+  let param = Msig.Parameter order nonce pkSigs
+  Tz.call vmoFrom vmoMsig param
+
+data ViaMultisigOptions = ViaMultisigOptions
+  { vmoMsig :: Address
+  , vmoStkr :: Address
+  , vmoFrom :: Address
+  , vmoSign :: ByteString -> TzTest [(PublicKey, Signature)]
+  , vmoNonce :: Maybe Natural
+  }
+
+data VoteForProposalOptions = VoteForProposalOptions
+  { vpStkr :: Address
+  , vpFrom :: Address
+  , vpSign :: ByteString -> TzTest (PublicKey, Signature)
+  , vpEpoch :: Natural
+  , vpProposalId :: Natural
+  }
+
+voteForProposal :: VoteForProposalOptions -> TzTest ()
+voteForProposal VoteForProposalOptions {..} = do
+  storage <- Tz.getStorage vpStkr
+  proposalHash <-
+    maybe (fail $ "Proposal id not found " <> show vpProposalId) pure .
+    fmap (arg #proposalHash . snd) . safeHead . snd . splitAt (fromIntegral vpProposalId - 1) $
+    STKR.proposals storage
+  let curStage = vpEpoch*4 + 2
+  let toSignB = lPackValue $ STKR.CouncilDataToSign proposalHash vpStkr curStage
+  (pk, sig) <- vpSign toSignB
+  Tz.call vpFrom vpStkr $ STKR.VoteForProposal
+    (#proposalId vpProposalId, #votePk pk, #voteSig sig)

@@ -12,12 +12,13 @@ module Lorentz.Contracts.STKR.Storage
 import Fmt (Buildable(..), Builder, blockMapF, jsonListF, mapF', base64F, (+|), (|+))
 import Tezos.Crypto (formatKeyHash)
 import Lorentz
+import Prelude (Show)
 
 type Hash = ByteString
 type URL = MText
 
 newtype Blake2BHash = Blake2BHash ByteString
-  deriving newtype IsoValue
+  deriving newtype (IsoValue, Show, Eq)
 
 blake2B_ :: ByteString & s :-> Blake2BHash & s
 blake2B_ = blake2B # coerce_

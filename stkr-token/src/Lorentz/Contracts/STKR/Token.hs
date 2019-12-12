@@ -9,6 +9,7 @@ module Lorentz.Contracts.STKR.Token
 
 import Lorentz
 
+import Lorentz.Contracts.STKR.Error ()
 import Lorentz.Contracts.STKR.Common
 import Lorentz.Contracts.STKR.Storage
 
@@ -40,7 +41,6 @@ getTotalSupply = view_ $ do
   unpair; drop
   toField #totalSupply
 
-
 creditTo
   :: forall s. Address & Natural & Storage & s :-> Storage & s
 creditTo = do
@@ -67,12 +67,15 @@ debitFrom = do
   update
   setField #ledger
 
-
 subGt0 :: Natural ': Natural ': s :-> Maybe Natural ': s
 subGt0 = do
-  sub;
-  dup; assertGe0 [mt|Transferred value is greater than balance|]
-  dup; eq0
-  if Holds
-  then drop >> none
-  else isNat
+  sub
+  dup
+  isNat
+  if IsSome
+  then do
+    swap; eq0
+    if Holds
+      then drop # none
+      else some
+  else failCustom #notEnoughFunds

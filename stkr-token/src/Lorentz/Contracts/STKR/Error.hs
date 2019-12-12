@@ -43,3 +43,10 @@ instance (CustomErrorHasDoc "wrongStage") where
   customErrDocMdCause = "Invalid stage for a request"
   customErrArgumentSemantics =
     Just "invalid stage for a request"
+
+type instance ErrorArg "notEnoughFunds" = Integer
+instance (CustomErrorHasDoc "notEnoughFunds") where
+  customErrClass = ErrClassActionException
+  customErrDocMdCause = "Not enough funds on from address"
+  customErrArgumentSemantics =
+    Just "not enough funds on from address"

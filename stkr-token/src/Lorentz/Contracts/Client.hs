@@ -1,5 +1,6 @@
 module Lorentz.Contracts.Client
   ( DeployOptions(..)
+  , DeployResult (..)
   , deploy
   , multisignValue
   ) where

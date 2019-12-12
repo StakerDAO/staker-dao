@@ -41,12 +41,15 @@ library:
     - singletons
     - fmt
     - microlens
+    - yaml
 
 executables:
   stkr-token-exe:
     <<: *exec-common
 
     dependencies:
+      - aeson
+      - yaml
       - base-noprelude >= 4.7 && < 5
       - containers
       - fmt
@@ -56,7 +59,27 @@ executables:
       - optparse-applicative
       - turtle
       - text
+
+  stkr-token-test-end2end:
+    <<: *test-common
+
+    source-dirs: test-end2end
+
+    dependencies:
+      - aeson
+      - base-noprelude >= 4.7 && < 5
+      - containers
+      - hspec
+      - hspec-expectations
+      - stkr-token
+      - morley
+      - morley-prelude
+      - tasty
+      - tasty-hspec
+      - text
+      - time
       - yaml
+
 
 tests:
   stkr-token-test:

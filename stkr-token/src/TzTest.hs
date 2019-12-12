@@ -1,7 +1,9 @@
 module TzTest
   ( TzTest
-  , Env(..)
   , runTzTest
+
+  , Env(..)
+  , readEnvFromFile
 
   , TransferP(..)
   , transfer
@@ -10,25 +12,31 @@ module TzTest
   , originateContract
 
   , generateKey
+  , importSecretKey
   , getStorage
+
+  , getChainId
+  , getMainChainId
   ) where
 
 import Prelude
 
 import Data.Singletons (SingI)
 import Data.Text.Lazy (toStrict)
+import qualified Data.Text as T
 import Fmt (pretty)
 import Lens.Micro (ix, (^.))
 import Turtle (Line, Shell)
 import qualified Turtle
 import Data.Aeson (FromJSON)
+import qualified Data.Yaml as Yaml
 
 import Lorentz (Contract, NicePrintedValue, NiceStorage, ParameterEntryPoints, parseLorentzValue)
 import Lorentz.Print (printLorentzContract, printLorentzValue)
 import Michelson.Typed (IsoValue, ToT)
 import Tezos.Address (Address, formatAddress, parseAddress)
-import Tezos.Core (Mutez)
-import Tezos.Crypto (PublicKey, parsePublicKey)
+import Tezos.Core (Mutez, ChainId, parseChainId)
+import Tezos.Crypto (PublicKey, parsePublicKey, SecretKey, formatSecretKey)
 
 data Env = Env
   { envTezosClientCmd :: Text
@@ -37,6 +45,9 @@ data Env = Env
   }
   deriving stock Generic
   deriving anyclass FromJSON
+
+readEnvFromFile :: FilePath -> IO Env
+readEnvFromFile path = Yaml.decodeFileThrow @IO @Env path
 
 type TzTest a = ReaderT Env IO a
 
@@ -122,6 +133,13 @@ generateKey alias = do
   let pk = (words keyLine) ^. ix 2
   either (fail . (("Error for PK " <> toString pk) <>) . pretty) pure $ parsePublicKey pk
 
+importSecretKey :: Text -> SecretKey -> TzTest Address
+importSecretKey alias sk = do
+  let skUri = "unencrypted:" <> formatSecretKey sk
+  output <- exec $ ["import", "secret", "key", alias, skUri, "--force"]
+  let addrStr = words output ^. ix 3
+  either (fail . pretty) pure (parseAddress addrStr)
+
 getStorage
   :: forall st.
   ( IsoValue st
@@ -134,3 +152,16 @@ getStorage addr = do
     ["get", "contract", "storage", "for", formatAddress addr]
   either (fail . pretty) pure $
     parseLorentzValue @st output
+stripQuotes :: Text -> Text
+stripQuotes = T.dropAround (== '"') . T.strip
+
+getChainId :: Text -> TzTest ChainId
+getChainId name = do
+  output <- exec $
+    ["rpc", "get", "/chains/" <> name <> "/chain_id"]
+
+  either (fail . pretty) pure
+    (parseChainId . stripQuotes $ output)
+
+getMainChainId :: TzTest ChainId
+getMainChainId = getChainId "main"

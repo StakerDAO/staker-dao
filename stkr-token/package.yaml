@@ -78,6 +78,7 @@ executables:
       - tasty
       - tasty-hspec
       - text
+      - fmt
       - time
       - yaml
 

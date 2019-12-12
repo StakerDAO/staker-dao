@@ -6,21 +6,22 @@ module Test.Lorentz.Contracts.STKR.Integrational
 
 import Prelude
 
+import Control.Concurrent (threadDelay)
 import Data.Aeson (FromJSON)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
 import qualified Data.Yaml as Yaml
-import Test.Hspec (Spec, it, runIO, shouldBe)
-import Control.Concurrent (threadDelay)
-import Text.Hex (decodeHex)
-import Michelson.Text (mkMTextUnsafe)
+import Fmt (pretty, (+|), (|+))
 import Lorentz (lPackValue)
+import Michelson.Text (mkMTextUnsafe)
+import Test.Hspec (Expectation, Spec, it, runIO, shouldBe)
+import Text.Hex (decodeHex)
 
 import Tezos.Address (Address)
 import qualified Tezos.Core as Tz
-import Tezos.Crypto (PublicKey, SecretKey, detSecretKey, hashKey, parseSecretKey, toPublic, blake2b)
+import Tezos.Crypto (PublicKey, SecretKey, blake2b, detSecretKey, hashKey, parseSecretKey, toPublic)
 import TzTest (TzTest, runTzTest)
 import qualified TzTest as Tz
 
@@ -54,8 +55,13 @@ loadTestAccount name =
 importTestAccount :: Text -> TzTest Address
 importTestAccount name = do
   AccountData{..} <- liftIO $ loadTestAccount name
-  sk <- either (\_ -> fail "aaaa") pure (parseSecretKey secretKey)
+  sk <- either
+    (\e -> fail $ "Error importing test account "+|name|+": "+|e|+"") pure $
+    parseSecretKey secretKey
   Tz.importSecretKey name sk
+
+expectStorage :: Address -> (STKR.Storage -> Expectation) -> TzTest ()
+expectStorage addr check = STKR.getStorage addr >>= lift . check
 
 spec_NetworkTest :: Spec
 spec_NetworkTest = do
@@ -76,7 +82,7 @@ tezosWpUrlHash = (hash_, url)
       "be7663e0ef87d51ab149a60dfad4df5940d30395ba287d9907f8d66ce5061d96"
 
 stageDuration :: Num a => a
-stageDuration = 150
+stageDuration = 500
 
 networkTestSpec :: TestOptions -> Spec
 networkTestSpec TestOptions{..} = do
@@ -94,13 +100,28 @@ networkTestSpec TestOptions{..} = do
   let newCouncilKeys = Set.fromList $ hashKey <$> [pk6, pk7]
 
   start <- flip Tz.timestampPlusSeconds 100 <$> runIO Tz.getCurrentTime
+  let startSeconds = Tz.timestampToSeconds start
   let timeConfig = STKR.TestTC start stageDuration
-  let waitForStage (i :: Int) = do
-        now <- Tz.timestampToSeconds <$> Tz.getCurrentTime
-        let diff = Tz.timestampToSeconds start + i*stageDuration - now
-        when (diff > 0) $ do
-          putTextLn $ "Waiting for " <> show diff <> " seconds"
-          threadDelay (diff * 1000000)
+
+  let waitForStage (i :: Int) = putTextLn ("Waiting for stage "+|i|+"...") >> loop
+        where
+          waitTill = startSeconds + i*stageDuration
+          pollCycleDuration = 2000000 -- 2 seconds
+          loop = do
+            headTime <- Tz.timestampToSeconds <$> Tz.getHeadTimestamp
+            now <- lift $ Tz.timestampToSeconds <$> Tz.getCurrentTime
+            let networkLag = now - headTime
+            when (networkLag > stageDuration
+                  && networkLag < stageDuration + pollCycleDuration) $ do
+              putTextLn $ "Network lag is "+|networkLag|+
+                " which is bigger than stage duration."
+              putTextLn $ "This test is likely to fail :("
+            if headTime < waitTill
+            then lift (threadDelay pollCycleDuration) >> loop
+            else do
+              putTextLn $ "Stage "+|i|+" block reached chain "+|now - startSeconds|+
+                " seconds after start."
+              putTextLn $ "Testing stage "+|i|+"..."
 
   let newUrls = Map.singleton (mkMTextUnsafe "tezos-wp") tezosWpUrlHash
   let newProposal = ( #description (mkMTextUnsafe "First")
@@ -126,21 +147,19 @@ networkTestSpec TestOptions{..} = do
           }
 
   it "passes happy case for newProposal" . tzTest $ do
-    lift $ waitForStage 0
+    waitForStage 0
     callViaMultisig (STKR.NewProposal newProposal) vmo
-    STKR.Storage{..} <- STKR.getStorage stkrAddr
-    let proposalAndHash =
-          ( #proposal newProposal, #proposalHash $
-            STKR.Blake2BHash $ blake2b $ lPackValue newProposal )
-    lift $ proposals `shouldBe` [proposalAndHash]
+    expectStorage stkrAddr $ \STKR.Storage{..} -> do
+      let proposalAndHash =
+            ( #proposal newProposal, #proposalHash $
+              STKR.Blake2BHash $ blake2b $ lPackValue newProposal )
+      proposals `shouldBe` [proposalAndHash]
 
-  it "passes happy case for newCouncil" . tzTest $ do
     callViaMultisig (STKR.NewCouncil newCouncilKeys) vmo
-    STKR.Storage{..} <- STKR.getStorage stkrAddr
-    lift $ councilKeys `shouldBe` newCouncilKeys
+    expectStorage stkrAddr $ \STKR.Storage{..} ->
+      councilKeys `shouldBe` newCouncilKeys
 
-  it "passes happy case for vote" . tzTest $ do
-    lift $ waitForStage 2
+    waitForStage 2
     let vpo =
           VoteForProposalOptions
             { vpEpoch = 0
@@ -151,6 +170,5 @@ networkTestSpec TestOptions{..} = do
             }
     voteForProposal vpo
     voteForProposal vpo {vpSign = pure . signBytes sk7}
-    STKR.Storage{..} <- STKR.getStorage stkrAddr
-    lift $ votes `shouldBe` Map.fromSet (const $ #proposalId 1) newCouncilKeys
-
+    expectStorage stkrAddr $ \STKR.Storage{..} ->
+      votes `shouldBe` Map.fromSet (const $ #proposalId 1) newCouncilKeys

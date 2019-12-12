@@ -86,7 +86,7 @@ updateStorage curStage = do
       lt0
       if Holds
         then drop # failCustom #wrongStage
-        -- ^ current stage less than counter
+        -- current stage less than counter
         else impl
   where
     impl

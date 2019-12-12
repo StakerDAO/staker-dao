@@ -18,6 +18,8 @@ module TzTest
 
   , getChainId
   , getMainChainId
+  , getHeadTimestamp
+
   , resolve
   , resolve'
   , ResolveType (..)
@@ -41,7 +43,7 @@ import Lorentz (Contract, NicePrintedValue, NiceStorage, ParameterEntryPoints, p
 import Lorentz.Print (printLorentzContract, printLorentzValue)
 import Michelson.Typed (IsoValue, ToT)
 import Tezos.Address (Address, formatAddress, parseAddress)
-import Tezos.Core (Mutez, ChainId, parseChainId, unsafeMkMutez)
+import Tezos.Core (Mutez, ChainId, parseChainId, unsafeMkMutez, parseTimestamp, Timestamp)
 import Tezos.Crypto (PublicKey, KeyHash, Signature, parsePublicKey, parseKeyHash, parseSignature, SecretKey, formatSecretKey)
 
 data Env = Env
@@ -241,3 +243,9 @@ getChainId name = do
 
 getMainChainId :: TzTest ChainId
 getMainChainId = getChainId "main"
+
+getHeadTimestamp :: TzTest Timestamp
+getHeadTimestamp = do
+  output <- exec $ ["get", "timestamp"]
+  maybe (fail "Failed to parse timestamp") pure $
+    parseTimestamp . T.strip $ output

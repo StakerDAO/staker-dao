@@ -23,9 +23,9 @@ import qualified Lorentz.Contracts.STKR.Client as STKR
 
 
 import Parser
-  (CliCommand(..), DeployOptions(..), LocalCommand(..), RemoteAction(..), RemoteCommand(..),
-  TzEnvConfig(..), NewCouncilOptions (..), NewProposalOptions (..), VoteForProposalOptions (..),
-  ViaMultisigOptions (..), cmdParser)
+  (CliCommand(..), DeployOptions(..), LocalCommand(..), NewCouncilOptions(..),
+  NewProposalOptions(..), RemoteAction(..), RemoteCommand(..), TzEnvConfig(..),
+  ViaMultisigOptions(..), VoteForProposalOptions(..), cmdParser)
 
 main :: IO ()
 main = do
@@ -47,12 +47,14 @@ localCmdRunner = \case
       maybe putStrLn writeFileUtf8 out $
       L.printLorentzContract False (STKR.stkrContract tc)
 
-callViaMultisig :: STKR.Parameter -> ViaMultisigOptions -> TzTest ()
-callViaMultisig stkrParam ViaMultisigOptions {..} = do
+callViaMultisig
+  :: Msig.TransferOrderWrapC STKR.Parameter cName it
+  => Msig.Label cName -> it -> ViaMultisigOptions -> TzTest ()
+callViaMultisig label stkrParam ViaMultisigOptions {..} = do
   fromAddr <- Tz.resolve' Tz.AddressAlias vmoFrom
   msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
   stkrAddr <- Tz.resolve' Tz.ContractAlias vmoStkr
-  Client.callViaMultisig stkrParam $ Client.ViaMultisigOptions
+  Client.callViaMultisig label stkrParam $ Client.ViaMultisigOptions
     { vmoFrom = fromAddr
     , vmoMsig = msigAddr
     , vmoStkr = stkrAddr
@@ -83,12 +85,12 @@ remoteCmdRunner = \case
         }
     putTextLn $ "Deploy result: " +| addrs |+ ""
   NewProposal NewProposalOptions {..} ->
-    callViaMultisig (STKR.NewProposal npProposal) npViaMultisig
+    callViaMultisig #cNewProposal npProposal npViaMultisig
   NewCouncil NewCouncilOptions {..} -> do
     let genCouncil (prefix, n) =
           mapM (\i -> fmap hashKey . Tz.generateKey $ prefix <> "_key_" <> show i) [1..n]
     council <- either (fmap Set.fromList . genCouncil) pure ncCouncil
-    callViaMultisig (STKR.NewCouncil council) ncViaMultisig
+    callViaMultisig #cNewCouncil council ncViaMultisig
   VoteForProposal VoteForProposalOptions {..} -> do
     fromAddr <- Tz.resolve' Tz.AddressAlias vpFrom
     stkrAddr <- Tz.resolve' Tz.ContractAlias vpStkr

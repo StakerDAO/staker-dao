@@ -13,7 +13,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
 import qualified Data.Yaml as Yaml
-import Fmt (pretty, (+|), (|+))
+import Fmt ((+|), (|+))
 import Lorentz (lPackValue)
 import Michelson.Text (mkMTextUnsafe)
 import Test.Hspec (Expectation, Spec, it, runIO, shouldBe)
@@ -60,7 +60,7 @@ importTestAccount name = do
     parseSecretKey secretKey
   Tz.importSecretKey name sk
 
-expectStorage :: Address -> (STKR.Storage -> Expectation) -> TzTest ()
+expectStorage :: Address -> (STKR.AlmostStorage -> Expectation) -> TzTest ()
 expectStorage addr check = STKR.getStorage addr >>= lift . check
 
 spec_NetworkTest :: Spec
@@ -148,15 +148,15 @@ networkTestSpec TestOptions{..} = do
 
   it "passes happy case for newProposal" . tzTest $ do
     waitForStage 0
-    callViaMultisig (STKR.NewProposal newProposal) vmo
-    expectStorage stkrAddr $ \STKR.Storage{..} -> do
+    callViaMultisig #cNewProposal newProposal vmo
+    expectStorage stkrAddr $ \STKR.AlmostStorage{..} -> do
       let proposalAndHash =
             ( #proposal newProposal, #proposalHash $
               STKR.Blake2BHash $ blake2b $ lPackValue newProposal )
       proposals `shouldBe` [proposalAndHash]
 
-    callViaMultisig (STKR.NewCouncil newCouncilKeys) vmo
-    expectStorage stkrAddr $ \STKR.Storage{..} ->
+    callViaMultisig #cNewCouncil newCouncilKeys vmo
+    expectStorage stkrAddr $ \STKR.AlmostStorage{..} ->
       councilKeys `shouldBe` newCouncilKeys
 
     waitForStage 2
@@ -170,5 +170,5 @@ networkTestSpec TestOptions{..} = do
             }
     voteForProposal vpo
     voteForProposal vpo {vpSign = pure . signBytes sk7}
-    expectStorage stkrAddr $ \STKR.Storage{..} ->
+    expectStorage stkrAddr $ \STKR.AlmostStorage{..} ->
       votes `shouldBe` Map.fromSet (const $ #proposalId 1) newCouncilKeys

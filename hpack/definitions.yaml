@@ -54,6 +54,8 @@ _definitions:
         - TypeOperators
         - UndecidableInstances
         - ViewPatterns
+        - DerivingStrategies
+        - DeriveAnyClass
 
     - &dependencies
         - base-noprelude >= 4.7 && < 5

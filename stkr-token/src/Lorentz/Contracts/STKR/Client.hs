@@ -2,6 +2,10 @@ module Lorentz.Contracts.STKR.Client
   ( DeployOptions(..)
   , deploy
 
+  , CallOptions(..)
+  , call
+
+  , AlmostStorage(..)
   , getStorage
   ) where
 
@@ -10,8 +14,16 @@ import Prelude
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as S
 
+import Fmt (Buildable(..), Builder, blockMapF, jsonListF, mapF')
+
 import Tezos.Address (Address)
-import Tezos.Crypto (PublicKey, hashKey)
+import Tezos.Core (unsafeMkMutez)
+import Tezos.Crypto (formatKeyHash)
+import Tezos.Crypto (PublicKey, KeyHash, hashKey)
+import Util.Named ((:!))
+
+import Lorentz.Contracts.STKR.Storage (ProposalAndHash, Policy)
+import Lorentz.Value (IsoValue)
 
 import Lorentz.Contracts.STKR.Common (TimeConfig)
 import qualified Lorentz.Contracts.STKR as STKR
@@ -36,6 +48,8 @@ deploy DeployOptions{..} = do
           , votes = Map.empty
           , policy = #urls Map.empty
           , stageCounter = 0
+          , totalSupply = 0
+          , ledger = mempty
           }
   Tz.originateContract $
     Tz.OriginateContractP
@@ -47,5 +61,51 @@ deploy DeployOptions{..} = do
       , ocpBurnCap = 220
       }
 
-getStorage :: Address -> TzTest STKR.Storage
-getStorage = Tz.getStorage @STKR.Storage
+data AlmostStorage = AlmostStorage
+  { owner :: Address
+  , councilKeys :: Set KeyHash
+  , policy :: Policy
+  , proposals :: [ProposalAndHash]
+  , votes :: Map KeyHash ("proposalId" :! Natural)
+  , stageCounter :: Natural
+  -- ^ @stageCounter `div` 4@ is current epoch and @stageCounter `mod` 4@
+  -- denotes current stage within an epoch
+  , totalSupply :: Natural
+  , ledger :: Natural
+  -- ^ Big maps represented as their BigMapId's in tezos-client output
+  }
+  deriving stock Generic
+  deriving anyclass IsoValue
+
+instance Buildable AlmostStorage where
+  build AlmostStorage{..} = blockMapF @[(Text, Builder)] $
+    [ ("owner", build owner)
+    , ("councilKeys", jsonListF councilKeys)
+    , ("policy", build policy)
+    , ("proposals", jsonListF proposals)
+    , ("votes", mapF' (build . formatKeyHash) build votes)
+    , ("stageCounter", build stageCounter)
+    , ("totalSupply", build totalSupply)
+    , ("ledger", "BigMap values should not be displayed")
+    ]
+
+getStorage :: Address -> TzTest AlmostStorage
+getStorage = Tz.getStorage @AlmostStorage
+
+data CallOptions = CallOptions
+  { caller :: Address
+  , contract :: Address
+  , parameter :: STKR.Parameter
+  }
+
+call
+  :: CallOptions
+  -> TzTest ()
+call CallOptions{..} = Tz.transfer $
+  Tz.TransferP
+    { tpQty = unsafeMkMutez 0
+    , tpSrc = caller
+    , tpDst = contract
+    , tpBurnCap = 22
+    , tpArgument = parameter
+    }

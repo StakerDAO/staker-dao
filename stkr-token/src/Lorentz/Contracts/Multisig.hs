@@ -7,11 +7,14 @@ module Lorentz.Contracts.Multisig
   , Storage (..)
   , ValueToSign (..)
 
+  , OrderDest (..)
   , mkCallOrder
-  , mkCallOrderUnsafe
+  , mkCallOrderWrap
   , mkRotateKeysOrder
   , mkTransferOrder
-  , mkTransferOrderUnsafe
+  , Label
+  , TransferOrderWrapC
+  , mkTransferOrderWrap
   , multisigContract
   ) where
 

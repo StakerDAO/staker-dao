@@ -4,10 +4,6 @@
 name:                stkr-token
 version:             0.1.0.0
 
-
-verbatim:
-  cabal-version: 2.2 # force Cabal version 2.2+
-
 extra-source-files:
 - README.md
 
@@ -43,6 +39,7 @@ library:
     - fmt
     - microlens
     - yaml
+    - vinyl
 
 executables:
   stkr-token-exe:
@@ -62,8 +59,8 @@ executables:
       - text
 
   stkr-token-test-end2end:
-    <<: *test-common
-
+    <<: *lorentz-default-extensions
+    main: Main.hs
     source-dirs: test-end2end
 
     dependencies:
@@ -99,3 +96,4 @@ tests:
       - microlens
       - tasty
       - tasty-hspec
+      - vinyl

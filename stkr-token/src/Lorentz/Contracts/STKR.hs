@@ -2,7 +2,14 @@ module Lorentz.Contracts.STKR
   ( Parameter (..)
   , Storage (..)
   , TimeConfig (..)
+  , CouncilDataToSign (..)
+  , Blake2BHash (..)
   , stkrContract
+  , Proposal
+  , Policy
+  , VoteForProposalParams
+  , URL
+  , Hash
   ) where
 
 import Lorentz
@@ -12,7 +19,8 @@ import Lorentz.Contracts.STKR.Common (TimeConfig (..), ensureOwner,
                                       calcWinner, checkNotStages, checkStage)
 import Lorentz.Contracts.STKR.Error ()
 import Lorentz.Contracts.STKR.Parameter (VoteForProposalParams, Parameter(..))
-import Lorentz.Contracts.STKR.Storage (Storage(..), Proposal, Blake2BHash, blake2B_)
+import Lorentz.Contracts.STKR.Storage (Blake2BHash (..), Hash, Policy, Proposal,
+                                      Storage (..), URL, blake2B_)
 import Lorentz.Contracts.Common (listAt, ensureSignatureValid)
 
 data CouncilDataToSign = CouncilDataToSign
@@ -78,7 +86,7 @@ updateStorage curStage = do
       lt0
       if Holds
         then drop # failCustom #wrongStage
-        -- ^ current stage less than counter
+        -- current stage less than counter
         else impl
   where
     impl

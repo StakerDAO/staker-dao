@@ -17,45 +17,87 @@ import TzTest (TzTest)
 import qualified TzTest as Tz
 
 import qualified Lorentz.Contracts.Client as Client
-import Lorentz.Contracts.STKR (TimeConfig, stkrContract)
-import Lorentz.Contracts.Multisig (multisigContract)
+import qualified Lorentz.Contracts.Multisig as Msig
+import qualified Lorentz.Contracts.STKR as STKR
 import qualified Lorentz.Contracts.STKR.Client as STKR
 
 
 import Parser
   (CliCommand(..), DeployOptions(..), LocalCommand(..), RemoteAction(..), RemoteCommand(..),
-  TzEnvConfig(..), cmdParser)
+  TzEnvConfig(..), NewCouncilOptions (..), NewProposalOptions (..), VoteForProposalOptions (..),
+  ViaMultisigOptions (..), cmdParser)
 
 main :: IO ()
 main = do
-  (cmd, tc) <- Opt.execParser cmdParser
+  cmd <- Opt.execParser cmdParser
   case cmd of
-    Local localCmd -> localCmdRunner tc localCmd
+    Local localCmd -> localCmdRunner localCmd
     Remote RemoteAction{..} -> do
       env <- case tzEnvConfig of
         YamlFile path -> Tz.readEnvFromFile path
         CliArgs tzEnv -> pure tzEnv
-      Tz.runTzTest (remoteCmdRunner tc remoteCmd) env
+      Tz.runTzTest (remoteCmdRunner remoteCmd) env
 
-localCmdRunner :: TimeConfig -> LocalCommand -> IO ()
-localCmdRunner tc = \case
-    PrintMultisig out -> maybe putStrLn writeFileUtf8 out $ L.printLorentzContract False multisigContract
-    PrintStkr out -> maybe putStrLn writeFileUtf8 out $ L.printLorentzContract False (stkrContract tc)
+localCmdRunner :: LocalCommand -> IO ()
+localCmdRunner = \case
+    PrintMultisig out ->
+      maybe putStrLn writeFileUtf8 out $
+      L.printLorentzContract False Msig.multisigContract
+    PrintStkr out tc ->
+      maybe putStrLn writeFileUtf8 out $
+      L.printLorentzContract False (STKR.stkrContract tc)
 
-remoteCmdRunner :: TimeConfig -> RemoteCommand -> TzTest ()
-remoteCmdRunner timeConfig = \case
+callViaMultisig :: STKR.Parameter -> ViaMultisigOptions -> TzTest ()
+callViaMultisig stkrParam ViaMultisigOptions {..} = do
+  fromAddr <- Tz.resolve' Tz.AddressAlias vmoFrom
+  msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
+  stkrAddr <- Tz.resolve' Tz.ContractAlias vmoStkr
+  Client.callViaMultisig stkrParam $ Client.ViaMultisigOptions
+    { vmoFrom = fromAddr
+    , vmoMsig = msigAddr
+    , vmoStkr = stkrAddr
+    , vmoSign =
+        \bytes ->
+        mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
+    , ..
+    }
+
+remoteCmdRunner :: RemoteCommand -> TzTest ()
+remoteCmdRunner = \case
   Deploy DeployOptions{..} -> do
-    let readSkFromFile filename = readFileUtf8 filename >>= either (fail . pretty) pure . parsePublicKey . T.strip
-    teamPks <- if null teamPksFiles
-                then mapM (\i -> Tz.generateKey $ msigAlias <> "_key_" <> show (i :: Int)) [1..3]
-                else liftIO $ traverse readSkFromFile teamPksFiles
+    let readSkFromFile filename =
+          readFileUtf8 filename >>=
+          either (fail . pretty) pure . parsePublicKey . T.strip
+    let msigKeyName i = msigAlias <> "_key_" <> show (i :: Int)
+    teamKeys <-
+      fmap (Set.fromList . fmap hashKey) $
+        if null teamPksFiles
+        then mapM (Tz.generateKey . msigKeyName) [1..3]
+        else liftIO $ traverse readSkFromFile teamPksFiles
+    originator' <- Tz.resolve' Tz.AddressAlias originator
     addrs <- Client.deploy $
       Client.DeployOptions
         { councilPks = []
-        , teamKeys = Set.fromList $ hashKey <$> teamPks
+        , originator = originator'
         , ..
         }
-    putStrLn @Text $ "Deploy result: " +| addrs |+ ""
-
-  PrintStorage addr ->
-    STKR.getStorage addr >>= liftIO . T.putStrLn . pretty
+    putTextLn $ "Deploy result: " +| addrs |+ ""
+  NewProposal NewProposalOptions {..} ->
+    callViaMultisig (STKR.NewProposal npProposal) npViaMultisig
+  NewCouncil NewCouncilOptions {..} -> do
+    let genCouncil (prefix, n) =
+          mapM (\i -> fmap hashKey . Tz.generateKey $ prefix <> "_key_" <> show i) [1..n]
+    council <- either (fmap Set.fromList . genCouncil) pure ncCouncil
+    callViaMultisig (STKR.NewCouncil council) ncViaMultisig
+  VoteForProposal VoteForProposalOptions {..} -> do
+    fromAddr <- Tz.resolve' Tz.AddressAlias vpFrom
+    stkrAddr <- Tz.resolve' Tz.ContractAlias vpStkr
+    Client.voteForProposal $ Client.VoteForProposalOptions
+      { vpFrom = fromAddr
+      , vpStkr = stkrAddr
+      , vpSign = \toSignB -> Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
+      , ..
+      }
+  PrintStorage addr_ ->
+    Tz.resolve' Tz.ContractAlias addr_ >>=
+    STKR.getStorage >>= liftIO . T.putStrLn . pretty

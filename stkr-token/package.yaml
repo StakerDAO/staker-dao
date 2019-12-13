@@ -25,6 +25,7 @@ dependencies:
   - morley
   - morley-prelude
   - named
+  - hex-text
 
 library:
   <<: *lorentz-lib-common
@@ -77,6 +78,7 @@ executables:
       - tasty
       - tasty-hspec
       - text
+      - fmt
       - time
       - yaml
 

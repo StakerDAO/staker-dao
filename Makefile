@@ -14,6 +14,12 @@ dev:
 test:
 	nix-shell --run 'cd stkr-token && hpack && cabal test'
 
+repl-exe:
+	nix-shell --run 'cd stkr-token && hpack && cabal repl stkr-token-exe'
+
+repl-test:
+	nix-shell --run 'cd stkr-token && hpack && cabal repl stkr-token-test'
+
 repl:
 	nix-shell --run 'cd stkr-token && hpack && cabal repl'
 

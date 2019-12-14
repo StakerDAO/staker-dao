@@ -22,10 +22,9 @@ import Tezos.Crypto (formatKeyHash)
 import Tezos.Crypto (PublicKey, KeyHash, hashKey)
 import Util.Named ((:!))
 
-import Lorentz.Contracts.STKR.Storage (ProposalAndHash, Policy)
-import Lorentz.Value (IsoValue)
+import Lorentz.Contracts.STKR.Governance (ProposalAndHash, Policy, TimeConfig)
+import Lorentz (IsoValue)
 
-import Lorentz.Contracts.STKR.Common (TimeConfig)
 import qualified Lorentz.Contracts.STKR as STKR
 import TzTest (TzTest)
 import qualified TzTest as Tz

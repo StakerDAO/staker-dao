@@ -1,39 +1,15 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+
 module Lorentz.Contracts.STKR.Storage
   ( Storage(..)
-  , Hash
-  , URL
-  , Proposal
-  , ProposalAndHash
-  , Policy
-  , Blake2BHash (..)
-  , blake2B_
   ) where
+
+import Lorentz
 
 import Fmt (Buildable(..), Builder, blockMapF, jsonListF, mapF', base64F, (+|), (|+))
 import Tezos.Crypto (formatKeyHash)
-import Lorentz
-import Prelude (Show)
 
-type Hash = ByteString
-type URL = MText
-
-newtype Blake2BHash = Blake2BHash ByteString
-  deriving newtype (IsoValue, Show, Eq)
-
-blake2B_ :: ByteString & s :-> Blake2BHash & s
-blake2B_ = blake2B # coerce_
-
-type Policy =
-  ( "urls" :! Map MText (Hash, URL)
-  )
-
-type Proposal =
-  ( "description" :! MText
-  , "newPolicy" :! Policy
-  )
-
-type ProposalAndHash = ("proposal" :! Proposal, "proposalHash" :! Blake2BHash)
+import Lorentz.Contracts.STKR.Governance.TypeDefs (Proposal, ProposalAndHash, Hash, URL, Policy)
 
 data Storage = Storage
   { owner :: Address

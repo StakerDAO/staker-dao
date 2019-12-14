@@ -22,6 +22,7 @@ import Lorentz.Contracts.STKR.Parameter (VoteForProposalParams, Parameter(..))
 import Lorentz.Contracts.STKR.Storage (Blake2BHash (..), Hash, Policy, Proposal,
                                       Storage (..), URL, blake2B_)
 import Lorentz.Contracts.Common (listAt, ensureSignatureValid)
+import qualified Lorentz.Contracts.STKR.Token as Token
 
 data CouncilDataToSign = CouncilDataToSign
   { cdProposalHash :: Blake2BHash
@@ -38,6 +39,9 @@ stkrContract timeConfig = do
     ( #cNewCouncil /-> newCouncil (getCurrentStage timeConfig)
     , #cNewProposal /-> newProposal (getCurrentStage timeConfig)
     , #cVoteForProposal /-> voteForProposal (getCurrentStage timeConfig)
+    , #cTransfer /-> Token.transfer
+    , #cGetBalance /-> Token.getBalance
+    , #cGetTotalSupply /-> Token.getTotalSupply
     )
 
 newCouncil :: GetCurrentStage -> Entrypoint (Set KeyHash) Storage

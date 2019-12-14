@@ -4,6 +4,7 @@ module Lorentz.Contracts.STKR.Storage
   , Hash
   , URL
   , Proposal
+  , ProposalAndHash
   , Policy
   , Blake2BHash (..)
   , blake2B_
@@ -43,6 +44,8 @@ data Storage = Storage
   , stageCounter :: Natural
   -- ^ @stageCounter `div` 4@ is current epoch and @stageCounter `mod` 4@
   -- denotes current stage within an epoch
+  , totalSupply :: Natural
+  , ledger :: BigMap Address Natural
   }
   deriving stock Generic
   deriving anyclass IsoValue
@@ -68,4 +71,6 @@ instance Buildable Storage where
     , ("proposals", jsonListF proposals)
     , ("votes", mapF' (build . formatKeyHash) build votes)
     , ("stageCounter", build stageCounter)
+    , ("totalSupply", build totalSupply)
+    , ("ledger", "BigMap values should not be displayed")
     ]

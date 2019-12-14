@@ -2,47 +2,19 @@ module Test.Lorentz.Contracts.STKR.NewCouncil
   ( spec_NewCouncil
   ) where
 
-import Lorentz (fromContractAddr)
 import Prelude
 
 import qualified Data.Set as S
 import Fmt (listF, (+|), (|+))
-import qualified Lorentz as L
+import Lorentz (fromContractAddr)
 import Lorentz.Test
 import Test.Hspec (Spec, it)
-import Tezos.Core (dummyChainId)
-import Tezos.Crypto (SecretKey, hashKey)
+import Tezos.Crypto (hashKey)
 
-import Lorentz.Contracts.Multisig (mkCallOrder)
-import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR
-import Lorentz.Contracts.Client (multisignValue)
 
-import Test.Lorentz.Contracts.STKR.Common (newKeypair, originate)
+import Test.Lorentz.Contracts.STKR.Common (callWithMultisig, newKeypair, originateWithEmptyLedger)
 
--- | An utility function that creates a call order, signs it and
--- calls Multisig with the correct parameter.
-callWithMultisig
-  :: L.ContractRef Multisig.Parameter
-  -> Natural
-  -> [SecretKey]
-  -> L.ContractRef STKR.Parameter
-  -> STKR.Parameter
-  -> IntegrationalScenarioM ()
-callWithMultisig msig nonce teamSecretKeys stkr param = do
-  let order = mkCallOrder stkr param
-  let toSign = Multisig.ValueToSign
-        { vtsChainId = dummyChainId
-        , vtsNonce = nonce
-        , vtsOrder = order
-        }
-
-  lCall msig $
-    Multisig.Parameter
-      { order = order
-      , nonce = nonce
-      , signatures = multisignValue teamSecretKeys toSign
-      }
 
 spec_NewCouncil :: Spec
 spec_NewCouncil = newCouncilSpec
@@ -61,10 +33,9 @@ newCouncilSpec = do
       let teamPks = [pk1, pk2, pk3, pk4, pk5]
       let teamSks = [sk1, sk2, sk3, sk4, sk5]
       let newCouncilKeys = S.fromList [hashKey pk6, hashKey pk7]
-      (msig, stkr) <- originate teamPks []
+      (msig, stkr) <- originateWithEmptyLedger teamPks []
 
-      callWithMultisig msig 1 teamSks stkr $
-        STKR.NewCouncil newCouncilKeys
+      callWithMultisig msig 1 teamSks stkr #cNewCouncil newCouncilKeys
 
       validate . Right . lExpectStorageUpdate stkr $ \storage ->
         if newCouncilKeys == (STKR.councilKeys storage)
@@ -77,7 +48,7 @@ newCouncilSpec = do
     integrationalTestExpectation $ do
       let teamPks = [pk1, pk2, pk3, pk4, pk5]
       let newCouncilKeys = S.fromList [hashKey pk6, hashKey pk7]
-      (msig, stkr) <- originate teamPks []
+      (msig, stkr) <- originateWithEmptyLedger teamPks []
 
       lCall stkr $
         STKR.NewCouncil newCouncilKeys

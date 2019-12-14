@@ -8,17 +8,17 @@ import Prelude
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Fmt ((+|), (|+))
-import Lorentz ((#))
+import Lens.Micro (ix, (&), (.~))
+import Lorentz (( # ))
 import qualified Lorentz as L
-import Lorentz.Test
 import Lorentz.Pack (lPackValue)
-import Lens.Micro ((&), (.~), ix)
+import Lorentz.Test
 import Test.Hspec (Spec, it)
 import Tezos.Core (dummyChainId, mkChainIdUnsafe)
-import Tezos.Crypto (KeyHash, PublicKey, SecretKey, hashKey, detSecretKey, toPublic, sign)
+import Tezos.Crypto (KeyHash, PublicKey, SecretKey, detSecretKey, hashKey, sign, toPublic)
 
-import Lorentz.Contracts.Multisig
 import Lorentz.Contracts.Client (multisignValue)
+import Lorentz.Contracts.Multisig
 
 originate
   :: [PublicKey]
@@ -89,7 +89,7 @@ spec_Call = do
     integrationalTestExpectation $ do
       msig <- originate publicKeys
       flag <- lOriginate flagContract "flag" False (L.toMutez 0)
-      let order = mkCallOrder flag ()
+      let order = mkCallOrder (Ref flag) ()
 
       callMsig msig dummyChainId 1 order (take 3 secretKeys)
       validate . Right $ lExpectStorageConst flag True
@@ -98,7 +98,7 @@ spec_Call = do
     integrationalTestExpectation $ do
       msig <- originate $ take 4 publicKeys
       flag <- lOriginate flagContract "flag" False (L.toMutez 0)
-      let order = mkCallOrder flag ()
+      let order = mkCallOrder (Ref flag) ()
 
       callMsig msig dummyChainId 1 order (take 3 secretKeys)
       validate . Right $ lExpectStorageConst flag True
@@ -108,7 +108,7 @@ spec_Call = do
       msig <- originate publicKeys
       flag <- lOriginate flagContract "flag" False (L.toMutez 0)
       let flagAddr = L.fromContractAddr flag
-      let wrongOrder = mkCallOrderUnsafe flagAddr (777 :: Natural)
+      let wrongOrder = mkCallOrder (Unsafe flagAddr) (777 :: Natural)
 
       callMsig msig dummyChainId 1 wrongOrder (take 3 secretKeys)
       validate . Left $
@@ -116,7 +116,7 @@ spec_Call = do
 
   generalFailuresSpec $ do
     flag <- lOriginate flagContract "flag" False (L.toMutez 0)
-    return $ mkCallOrder flag ()
+    return $ mkCallOrder (Ref flag) ()
 
 spec_RotateKeys :: Spec
 spec_RotateKeys = do

@@ -13,8 +13,8 @@ module Lorentz.Contracts.Client
 
 import Prelude
 
-import Named (arg)
 import Fmt (Buildable(..), Builder, mapF)
+import Named (arg)
 
 import Lorentz.Constraints (NicePackedValue)
 import Lorentz.Pack (lPackValue)
@@ -24,10 +24,10 @@ import Tezos.Crypto (KeyHash, PublicKey, SecretKey, Signature, sign, toPublic)
 import TzTest (TzTest)
 import qualified TzTest as Tz
 
-import qualified Lorentz.Contracts.Multisig.Client as Msig
 import qualified Lorentz.Contracts.Multisig as Msig
-import qualified Lorentz.Contracts.STKR.Client as STKR
+import qualified Lorentz.Contracts.Multisig.Client as Msig
 import qualified Lorentz.Contracts.STKR as STKR
+import qualified Lorentz.Contracts.STKR.Client as STKR
 
 data DeployOptions = DeployOptions
   { msigAlias :: Text
@@ -84,9 +84,11 @@ signBytes
 signBytes sk bytes =
   (toPublic sk, sign sk bytes)
 
-callViaMultisig :: STKR.Parameter -> ViaMultisigOptions -> TzTest ()
-callViaMultisig stkrParam ViaMultisigOptions {..} = do
-  let order = Msig.mkCallOrderUnsafe vmoStkr stkrParam
+callViaMultisig
+  :: Msig.TransferOrderWrapC STKR.Parameter cName it
+  => Msig.Label cName -> it -> ViaMultisigOptions -> TzTest ()
+callViaMultisig label stkrParam ViaMultisigOptions {..} = do
+  let order = Msig.mkCallOrderWrap @STKR.Parameter (Msig.Unsafe vmoStkr) label stkrParam
   chainId <- Tz.getMainChainId
   let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage vmoMsig
   nonce <- maybe getNonce pure vmoNonce
@@ -114,11 +116,10 @@ data VoteForProposalOptions = VoteForProposalOptions
 
 voteForProposal :: VoteForProposalOptions -> TzTest ()
 voteForProposal VoteForProposalOptions {..} = do
-  storage <- Tz.getStorage vpStkr
+  STKR.AlmostStorage{..} <- STKR.getStorage vpStkr
   proposalHash <-
     maybe (fail $ "Proposal id not found " <> show vpProposalId) pure .
-    fmap (arg #proposalHash . snd) . safeHead . snd . splitAt (fromIntegral vpProposalId - 1) $
-    STKR.proposals storage
+    fmap (arg #proposalHash . snd) . safeHead . snd . splitAt (fromIntegral vpProposalId - 1) $ proposals
   let curStage = vpEpoch*4 + 2
   let toSignB = lPackValue $ STKR.CouncilDataToSign proposalHash vpStkr curStage
   (pk, sig) <- vpSign toSignB

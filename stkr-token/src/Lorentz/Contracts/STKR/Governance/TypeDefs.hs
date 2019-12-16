@@ -55,4 +55,4 @@ data TimeConfig =
     TestTC { _start :: Timestamp
            , _stageDuration :: Natural
            }
-  | ProdTC { _firstYear :: Natural }
+  | ProdTC { _startYear :: Natural }

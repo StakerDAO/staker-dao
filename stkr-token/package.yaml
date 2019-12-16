@@ -88,12 +88,14 @@ tests:
       - base-noprelude >= 4.7 && < 5
       - containers
       - fmt
+      - HUnit
       - hspec
       - hspec-expectations
       - stkr-token
       - morley
       - morley-prelude
       - microlens
+      - QuickCheck
       - tasty
       - tasty-hspec
       - vinyl

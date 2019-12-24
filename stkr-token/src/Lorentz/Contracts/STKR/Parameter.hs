@@ -1,18 +1,11 @@
 module Lorentz.Contracts.STKR.Parameter
   ( Parameter (..)
-  , VoteForProposalParams
   ) where
 
 import Lorentz
 
-import Lorentz.Contracts.STKR.Storage (Proposal)
-import Lorentz.Contracts.STKR.Token (TransferParams, GetBalanceParams)
-
-type VoteForProposalParams =
-  ( "proposalId" :! Natural
-  , "votePk" :! PublicKey
-  , "voteSig" :! Signature
-  )
+import Lorentz.Contracts.STKR.Token.TypeDefs (TransferParams, GetBalanceParams)
+import Lorentz.Contracts.STKR.Governance.TypeDefs (Proposal, VoteForProposalParams)
 
 data Parameter
   = NewCouncil (Set KeyHash)

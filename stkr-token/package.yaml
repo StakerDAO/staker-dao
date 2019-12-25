@@ -33,6 +33,11 @@ library:
     - morley-prelude
     # deps for tztest
     - aeson
+    - bytestring
+    - directory
+    - filepath
+    - haskeline
+    - cryptonite
     - text
     - turtle
     - singletons
@@ -41,6 +46,8 @@ library:
     - time
     - yaml
     - vinyl
+  extra-libraries:
+    - sodium
 
 executables:
   stkr-token-exe:

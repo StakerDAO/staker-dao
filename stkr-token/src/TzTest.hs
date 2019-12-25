@@ -1,3 +1,5 @@
+{-# LANGUAGE NoRebindableSyntax #-}
+
 module TzTest
   ( TzTest
   , runTzTest
@@ -34,9 +36,9 @@ import qualified Data.Text as T
 import Fmt (Buildable, pretty)
 import Turtle (Line, Shell)
 import qualified Turtle
-import Data.Aeson (FromJSON)
+import Data.Aeson (FromJSON(..), decodeFileStrict)
 import qualified Data.Yaml as Yaml
-import Text.Hex (encodeHex)
+-- GAGO import Text.Hex (encodeHex)
 import Lens.Micro (ix)
 
 import Lorentz (Contract, NicePrintedValue, NiceStorage, ParameterEntryPoints, parseLorentzValue)
@@ -44,7 +46,17 @@ import Lorentz.Print (printLorentzContract, printLorentzValue)
 import Michelson.Typed (IsoValue, ToT)
 import Tezos.Address (Address, formatAddress, parseAddress)
 import Tezos.Core (Mutez, ChainId, parseChainId, unsafeMkMutez, parseTimestamp, Timestamp)
-import Tezos.Crypto (PublicKey, KeyHash, Signature, parsePublicKey, parseKeyHash, parseSignature, SecretKey, formatSecretKey)
+import Tezos.Crypto (PublicKey(..), KeyHash, Signature(..), parsePublicKey, parseKeyHash, SecretKey,
+  parseSecretKey, toPublic, sign, formatSecretKey, blake2b)
+import qualified Crypto.PubKey.Ed25519 as Ed25519
+import qualified Crypto.Error as CE
+
+import System.Directory (getHomeDirectory)
+import System.FilePath ((</>))
+import Data.Maybe (fromJust)
+import System.Console.Haskeline (runInputT, defaultSettings, getPassword)
+
+import DecipherTzEncKey
 
 data Env = Env
   { envTezosClientCmd :: Text
@@ -167,8 +179,68 @@ lineWithPrefix prefix txt
       fromMaybe "" . safeHead $
       mapMaybe (T.stripPrefix prefix) (lines txt)
 
+----------------------------------------------------------
+-- The machinery below is to decipher secret keys
+-- We don't bother to call tezos client to show keys to us
+-- we read them directly from internal tezos configs
+-- FIXME? Move it to the separate module
+
+data TzClientSKey = TzClientSKey {
+    name :: Text
+  , value :: Text
+  } deriving (Generic, Show)
+instance FromJSON TzClientSKey
+
+getKey
+  :: Text -> IO TzClientSKey
+getKey alias = do
+  -- Search for keys
+  home <- getHomeDirectory
+  mbSKey <- (find ((== alias) . name) . maybe [] id) <$> decodeFileStrict (home </> ".tezos-client" </> "secret_keys")
+  when (isNothing mbSKey)
+    $ fail $ "Failed to resolve alias 1 " <> toString alias
+  return (fromJust mbSKey)
+
+-- Tezos.Crypto exports SecretKey abstractly, don't bother to change it
+mySignPK :: ByteString -> ByteString -> (PublicKey, Signature)
+mySignPK skBytes bytes = (PublicKey pk, Signature . Ed25519.sign sk pk . blake2b $ bytes)
+  where
+    sk = CE.throwCryptoError $ Ed25519.secretKey skBytes
+    pk = Ed25519.toPublic sk
+
+generateSigPK
+  :: Text -> ByteString -> IO (PublicKey, Signature)
+generateSigPK alias bytes = do
+  tzsk <- value <$> getKey alias
+  if "encrypted:" `T.isPrefixOf` tzsk
+    then
+      let attempt n = do
+            mbPass <- runInputT defaultSettings (getPassword (Just '*') $ "Please, enter the password for " <> toString alias <> ": ")
+            when (isNothing mbPass) $ fail "Failed to enter password"
+            eErrSkBytes <- decipherTzEncKey (T.drop (length @String "encrypted:") tzsk) (fromJust $ fromString <$> mbPass)
+            case eErrSkBytes of
+              Left err -> if n > 0
+                            then
+                              let nn = n - 1 in
+                               do putStrLn $ "The password is wrong, try againg (" ++ show nn ++ " attempt" ++ if nn > 1 then "s remain)" else " remains)"
+                                  attempt nn
+                            else
+                              fail $ show err
+              Right r -> return $ mySignPK r bytes
+      in attempt (5 :: Int)
+    else
+      -- we don't bother to check "unencrypted:" prefix, if it's
+      --   different, the parse fails anyway
+      let skt = parseSecretKey (T.drop (length @String "unencrypted:") tzsk)
+      in case skt of
+           Left err -> fail $ show err
+           Right sk -> return (toPublic sk, sign sk bytes)
+
+---------------------------------------------------------
+
 resolve
   :: ResolveType t -> Text -> TzTest t
+resolve (PkSigAlias bytes) alias = liftIO $ generateSigPK alias bytes
 resolve rt alias = do
   let (params, prefix) =
         case rt of
@@ -176,32 +248,19 @@ resolve rt alias = do
           KeyHashAlias -> (["show","address"], "Public Key: ")
           ContractAlias -> (["show","known","contract"], "")
           AddressAlias -> (["show","address"], "Hash: ")
-          PkSigAlias _ -> (["show","address"], "Public Key: ")
+          _ -> error "Urk"
   key <- T.strip . lineWithPrefix prefix <$> exec (params <> [alias])
   -- putTextLn $ "line: " <> key
   let errLabel = "Failed to resolve alias " <> toString alias
   case rt of
     PublicKeyAlias -> handleErr errLabel $ parsePublicKey key
     KeyHashAlias -> handleErr errLabel $ parseKeyHash key
-    PkSigAlias bytes ->
-      (,) <$> handleErr errLabel (parsePublicKey key)
-          <*> generateSig alias bytes
     AddressAlias -> handleErr errLabel $ parseAddress key
     ContractAlias -> handleErr errLabel $ parseAddress key
+    _ -> error "Urk"
 
 handleErr :: Buildable a => String -> Either a t -> TzTest t
 handleErr s = either (fail . ((s <> ": ") <>) . pretty) pure
-
-generateSig
-  :: Text -> ByteString -> TzTest Signature
-generateSig alias bytes = do
-  let errLabel = ("Failed to sign "<>toString bytes_
-                    <>" with alias "<> toString alias)
-  sgn <- T.strip . lineWithPrefix "Signature: " <$>
-          exec ["sign", "bytes", "0x"<>bytes_, "for", alias]
-  handleErr errLabel (parseSignature sgn)
-  where
-    bytes_ = encodeHex bytes
 
 generateKey
   :: Text -> TzTest PublicKey

@@ -13,7 +13,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
 import qualified Data.Yaml as Yaml
-import Fmt ((+|), (|+))
+import Fmt ((+|), (|+), pretty)
 import Lorentz (lPackValue)
 import Michelson.Text (mkMTextUnsafe)
 import Test.Hspec (Expectation, Spec, it, runIO, shouldBe)
@@ -129,13 +129,14 @@ networkTestSpec TestOptions{..} = do
   faucet <- runIO $ tzTest $ importTestAccount faucetName
 
   runIO $ putTextLn "Deploying contracts..."
-  ContractAddresses{..} <-
+  ca@ContractAddresses{..} <-
     runIO $ tzTest $ deploy $
     DeployOptions
       { originator = faucet
       , councilPks = []
       , ..
       }
+  runIO $ putTextLn $ "Deployed contracts: " <> pretty ca
 
   let vmo =
         ViaMultisigOptions

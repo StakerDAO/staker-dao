@@ -36,7 +36,7 @@ import qualified Data.Text as T
 import Fmt (Buildable, pretty)
 import Turtle (Line, Shell)
 import qualified Turtle
-import Data.Aeson (FromJSON(..))
+import Data.Aeson (FromJSON)
 import qualified Data.Yaml as Yaml
 import Lens.Micro (ix)
 

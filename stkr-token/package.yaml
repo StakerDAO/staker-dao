@@ -34,6 +34,8 @@ library:
     # deps for tztest
     - aeson
     - bytestring
+    - directory
+    - filepath
     - haskeline
     - cryptonite
     - text

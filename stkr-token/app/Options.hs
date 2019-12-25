@@ -29,21 +29,18 @@ module Options
 import Prelude
 
 import qualified Data.Text as T
-import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Options.Applicative as Opt
-import Text.Hex (decodeHex)
 import Fmt (pretty)
 
 import Tezos.Address (Address, parseAddress)
-import Michelson.Text (MText, mkMText)
 import Tezos.Core (Timestamp, timestampFromSeconds)
 import Tezos.Crypto (KeyHash, PublicKey, Signature, parsePublicKey, parseSignature, parseKeyHash)
 
 import qualified TzTest as Tz
 import TzTest (OrAlias)
 
-import Lorentz.Contracts.STKR (Hash, Proposal, TimeConfig (..), URL)
+import Lorentz.Contracts.STKR (TimeConfig (..))
 
 fileOutputOption :: Opt.Parser (Maybe FilePath)
 fileOutputOption = Opt.optional $ Opt.strOption $ mconcat
@@ -155,45 +152,13 @@ startOption =
         <> Opt.help "Time of first epoch start (for test mode)"
       )
 
-urlDesc :: String
-urlDesc =
-  "An URL to be stored in contract.\n"
-  <>
-  "Colon-separated triple should be given: a name of an URL, "
-  <>
-  "SHA256 hash of the document stored at URL "
-  <>
-  "(in hexadecimal format) and URL itself."
-
-proposalOption :: Opt.Parser Proposal
+proposalOption :: Opt.Parser FilePath
 proposalOption =
-  (\desc plc -> (#description desc, #newPolicy plc)) <$>
-    descOption <*> (many urlOption <&> #urls . M.fromList)
-  where
-    descOption = Opt.option (Opt.eitherReader mkMText')
-                  ( Opt.long "desc" <> Opt.metavar "TEXT"
-                    <> Opt.help "Description of the proposal" )
-    urlOption = Opt.option urlReader
-                  ( Opt.long "url" <> Opt.metavar "NAME:HASH:URL"
-                    <> Opt.help urlDesc)
-    mkMText' = either (Left . ("Failed to parse desc: " <>) . T.unpack)
-                      Right . mkMText . T.pack
-
-urlReader :: Opt.ReadM (MText, (Hash, URL))
-urlReader = Opt.eitherReader $ \txt -> do
-  (nameTxt, hashTxt, urlTxt) <-
-    case T.splitOn ":" (T.pack txt) of
-      n:h:u -> pure (n, h, T.intercalate ":" u)
-      _ -> Left "Expected format: \"<name>:<hash>:<url>\""
-  name <- handleErr "name" (mkMText nameTxt)
-  hash <- handleErr "hash" $ maybe (Left ("wrong" :: Text)) pure
-                                (decodeHex hashTxt)
-  url <- handleErr "URL" (mkMText urlTxt)
-  pure (name, (hash, url))
-  where
-    handleErr subj =
-      either (Left . (<>) ("Failed to parse "
-                              <>subj<>": ") . pretty) Right
+  (Opt.strOption $ mconcat
+    [ Opt.short 'p'
+    , Opt.long "proposal-file"
+    , Opt.metavar "PROPOSAL YAML_FILE"
+    ])
 
 nonceOption :: Opt.Parser (Maybe Natural)
 nonceOption = Opt.optional $ Opt.option Opt.auto (Opt.long "nonce")

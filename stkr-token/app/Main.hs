@@ -10,6 +10,7 @@ import qualified Data.Text.IO as T
 import Fmt (pretty, (+|), (|+))
 import qualified Lorentz as L
 import qualified Options.Applicative as Opt
+import qualified Data.Yaml as Yaml
 import Tezos.Crypto (hashKey, parsePublicKey)
 import Util.IO (readFileUtf8, writeFileUtf8)
 
@@ -20,7 +21,6 @@ import qualified Lorentz.Contracts.Client as Client
 import qualified Lorentz.Contracts.Multisig as Msig
 import qualified Lorentz.Contracts.STKR as STKR
 import qualified Lorentz.Contracts.STKR.Client as STKR
-
 
 import Parser
   (CliCommand(..), DeployOptions(..), LocalCommand(..), NewCouncilOptions(..),
@@ -84,7 +84,8 @@ remoteCmdRunner = \case
         , ..
         }
     putTextLn $ "Deploy result: " +| addrs |+ ""
-  NewProposal NewProposalOptions {..} ->
+  NewProposal NewProposalOptions {..} -> do
+    npProposal <- liftIO $ STKR.proposalText2Proposal <$> Yaml.decodeFileThrow @IO @_ npProposalFile
     callViaMultisig #cNewProposal (STKR.EnsureOwner npProposal) npViaMultisig
   NewCouncil NewCouncilOptions {..} -> do
     let genCouncil (prefix, n) =

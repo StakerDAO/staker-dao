@@ -5,6 +5,7 @@ module Lorentz.Contracts.STKR.Governance.TypeDefs
   , blake2B_
   , Policy
   , Proposal
+  , proposalText2Proposal
   , ProposalAndHash
   , VoteForProposalParams
   , CouncilDataToSign(..)
@@ -13,8 +14,12 @@ module Lorentz.Contracts.STKR.Governance.TypeDefs
 
 import Util.Named ((:!))
 import Prelude (Show)
+import Data.Map as M
+import Data.Text.Encoding (encodeUtf8)
+import Data.Aeson (FromJSON)
 
 import Lorentz
+import Michelson.Text (mkMTextUnsafe)
 
 type Hash = ByteString
 type URL = MText
@@ -33,6 +38,21 @@ type Proposal =
   ( "description" :! MText
   , "newPolicy" :! Policy
   )
+
+-- This is needed to define clean `FromJSON` instance,
+--   consider simplifying
+data ProposalText = ProposalText {
+    ptDescription :: Text
+  , ptNewPolicy :: Map Text (Text, Text)
+  } deriving (Generic, FromJSON)
+
+proposalText2Proposal :: ProposalText -> Proposal
+proposalText2Proposal ProposalText{..} =
+    ( #description $ mkMTextUnsafe ptDescription
+    , #newPolicy $ #urls urls)
+  where
+    urls = M.mapKeys (mkMTextUnsafe) . M.map decodeHU $ ptNewPolicy
+    decodeHU (hash, url) = (encodeUtf8 hash, mkMTextUnsafe url)
 
 type ProposalAndHash = ("proposal" :! Proposal, "proposalHash" :! Blake2BHash)
 

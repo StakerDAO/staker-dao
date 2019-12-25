@@ -22,8 +22,7 @@ import Tezos.Crypto (formatKeyHash)
 import Tezos.Crypto (PublicKey, KeyHash, hashKey)
 import Util.Named ((:!))
 
-import Lorentz.Contracts.STKR.Governance (ProposalAndHash, Policy, TimeConfig)
-import Lorentz (IsoValue)
+import Lorentz (IsoValue, Lambda, Operation)
 
 import qualified Lorentz.Contracts.STKR as STKR
 import TzTest (TzTest)
@@ -34,7 +33,7 @@ data DeployOptions = DeployOptions
   , originator :: Address
   , councilPks :: [PublicKey]
   , teamMultisig :: Address
-  , timeConfig :: TimeConfig
+  , timeConfig :: STKR.TimeConfig
   }
 
 deploy :: DeployOptions -> TzTest Address
@@ -49,6 +48,8 @@ deploy DeployOptions{..} = do
           , stageCounter = 0
           , totalSupply = 0
           , ledger = mempty
+          , frozen = False
+          , successor = Nothing
           }
   Tz.originateContract $
     Tz.OriginateContractP
@@ -63,8 +64,8 @@ deploy DeployOptions{..} = do
 data AlmostStorage = AlmostStorage
   { owner :: Address
   , councilKeys :: Set KeyHash
-  , policy :: Policy
-  , proposals :: [ProposalAndHash]
+  , policy :: STKR.Policy
+  , proposals :: [STKR.ProposalAndHash]
   , votes :: Map KeyHash ("proposalId" :! Natural)
   , stageCounter :: Natural
   -- ^ @stageCounter `div` 4@ is current epoch and @stageCounter `mod` 4@
@@ -72,6 +73,8 @@ data AlmostStorage = AlmostStorage
   , totalSupply :: Natural
   , ledger :: Natural
   -- ^ Big maps represented as their BigMapId's in tezos-client output
+  , frozen :: Bool
+  , successor :: Maybe (Lambda STKR.PublicEntrypointParam Operation)
   }
   deriving stock Generic
   deriving anyclass IsoValue

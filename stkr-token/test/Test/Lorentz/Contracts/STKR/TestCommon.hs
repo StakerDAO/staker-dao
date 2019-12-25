@@ -48,9 +48,18 @@ testCouncilKeys = Prelude.map
     [49 .. 53] -- "1" .. "5"
 
 testStorage :: Storage
-testStorage =
-  Storage genesisAddress (Set.fromList testCouncilKeys)
-    (#urls $ newUrls [1,2]) [] M.empty 0 0 (L.BigMap M.empty)
+testStorage = Storage
+  { owner = genesisAddress
+  , councilKeys = (Set.fromList testCouncilKeys)
+  , policy = #urls $ newUrls [1,2]
+  , proposals = []
+  , votes = M.empty
+  , stageCounter = 0
+  , totalSupply = 0
+  , ledger = L.BigMap M.empty
+  , frozen = False
+  , successor = Nothing
+  }
 
 spec_ensureOwner :: Spec
 spec_ensureOwner = do
@@ -58,7 +67,7 @@ spec_ensureOwner = do
   where
     runEnsureOwner = do
       let initStack = (Identity (EnsureOwner (10 :: Natural)) :& Identity testStorage :& RNil)
-      resStack <- L.interpretLorentzInstr dummyContractEnv (ensureOwnerI) initStack
+      resStack <- L.interpretLorentzInstr dummyContractEnv (ensureOwner) initStack
       case resStack of (Identity (10 :: Natural) :& RNil) -> return True
 
 

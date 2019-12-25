@@ -85,12 +85,12 @@ remoteCmdRunner = \case
         }
     putTextLn $ "Deploy result: " +| addrs |+ ""
   NewProposal NewProposalOptions {..} ->
-    callViaMultisig #cNewProposal npProposal npViaMultisig
+    callViaMultisig #cNewProposal (STKR.EnsureOwner npProposal) npViaMultisig
   NewCouncil NewCouncilOptions {..} -> do
     let genCouncil (prefix, n) =
           mapM (\i -> fmap hashKey . Tz.generateKey $ prefix <> "_key_" <> show i) [1..n]
     council <- either (fmap Set.fromList . genCouncil) pure ncCouncil
-    callViaMultisig #cNewCouncil council ncViaMultisig
+    callViaMultisig #cNewCouncil (STKR.EnsureOwner council) ncViaMultisig
   VoteForProposal VoteForProposalOptions {..} -> do
     fromAddr <- Tz.resolve' Tz.AddressAlias vpFrom
     stkrAddr <- Tz.resolve' Tz.ContractAlias vpStkr

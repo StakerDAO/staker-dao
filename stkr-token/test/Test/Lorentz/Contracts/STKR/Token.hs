@@ -33,7 +33,7 @@ spec_Transfer = do
       , opCouncilKeys = []
       , opInitailLedger = [(wallet1, 150)]
       }
-    callWithMultisig msig currentNonce teamSks stkr #cTransfer transferParam
+    callWithMultisig msig currentNonce teamSks stkr #cTransfer $ STKR.EnsureOwner transferParam
     validate . Right . lExpectStorageUpdate stkr $ \STKR.Storage{..} -> do
       failWhenNot (ledger ^. at wallet1 == Just 50) "Withraw from wallet1 not equal to 100"
       failWhenNot (ledger ^. at wallet2 == Just 100) "Credit to wallet2 not equal to 100"
@@ -46,10 +46,11 @@ spec_Transfer = do
         , opCouncilKeys = []
         , opInitailLedger = [(wallet1, 150)]
         }
-      callWithMultisig msig currentNonce teamSks stkr #cTransfer transferParam
+      callWithMultisig msig currentNonce teamSks stkr #cTransfer $ STKR.EnsureOwner transferParam
       validate . Right . lExpectStorageUpdate stkr $ \STKR.Storage{..} -> do
         failWhenNot (ledger ^. at wallet1 == Nothing) "Wallet still present in ledger"
         failWhenNot (ledger ^. at wallet2 == Just 150) "Credit to wallet2 not equal to 150"
+
   it "fail to transfer token if the operation is not signed"
     . integrationalTestExpectation $ do
       (msig, stkr) <- originate $ OriginateParams
@@ -57,6 +58,6 @@ spec_Transfer = do
         , opCouncilKeys = []
         , opInitailLedger = [(wallet1, 150)]
         }
-      lCall stkr $ STKR.Transfer (#from .! wallet1, #to .! wallet2, #value .! 100)
+      lCall stkr $ STKR.Transfer . STKR.EnsureOwner $ (#from .! wallet1, #to .! wallet2, #value .! 100)
       validate . Left $
         lExpectCustomError #senderCheckFailed (fromContractAddr msig)

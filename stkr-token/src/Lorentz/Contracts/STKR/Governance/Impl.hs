@@ -6,29 +6,29 @@ module Lorentz.Contracts.STKR.Governance.Impl
 
 import Lorentz
 import Lorentz.Contracts.Common (ensureSignatureValid, listAt)
-import Lorentz.Contracts.STKR.Common (ensureOwner)
 import Lorentz.Contracts.STKR.Governance.Common
   (calcWinner, checkNotStages, checkPkCanVote, checkStage, splitCounter)
 import Lorentz.Contracts.STKR.Governance.TypeDefs
   (Blake2BHash, CouncilDataToSign, Proposal, VoteForProposalParams, blake2B_)
+import Lorentz.Contracts.STKR.Misc (EnsureOwner, ensureOwnerI)
 import Lorentz.Contracts.STKR.Parameter (Parameter)
 import Lorentz.Contracts.STKR.Storage (Storage)
 
-newCouncil :: GetCurrentStage -> Entrypoint (Set KeyHash) Storage
+newCouncil :: GetCurrentStage -> Entrypoint (EnsureOwner (Set KeyHash)) Storage
 newCouncil curStage = do
   dip $ do
     updateStorage curStage
     dup # checkNotStages [3, 4]
-    dup # ensureOwner
+  duupX @2 # swap # ensureOwnerI
   setField #councilKeys
   nil; pair
 
-newProposal :: GetCurrentStage -> Entrypoint Proposal Storage
+newProposal :: GetCurrentStage -> Entrypoint (EnsureOwner Proposal) Storage
 newProposal curStage = do
   dip $ do
     updateStorage curStage
     dup # checkStage 0
-    dup # ensureOwner
+  duupX @2 # swap # ensureOwnerI
   dup
   pack
   blake2B_

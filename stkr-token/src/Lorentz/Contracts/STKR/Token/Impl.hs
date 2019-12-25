@@ -7,14 +7,13 @@ module Lorentz.Contracts.STKR.Token.Impl
 import Lorentz
 
 import Lorentz.Contracts.STKR.Error ()
-import Lorentz.Contracts.STKR.Common (ensureOwner)
+import Lorentz.Contracts.STKR.Misc (EnsureOwner, ensureOwner)
 import Lorentz.Contracts.STKR.Storage (Storage)
 import Lorentz.Contracts.STKR.Token.TypeDefs (TransferParams, GetBalanceParams)
 
 
-transfer :: Entrypoint TransferParams Storage
-transfer = do
-  dip $ dup >> ensureOwner
+transfer :: Entrypoint (EnsureOwner TransferParams) Storage
+transfer = ensureOwner $ do
   swap
   duupX @2; getField #value; swap; toField #from
   debitFrom

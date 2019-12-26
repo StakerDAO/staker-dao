@@ -44,15 +44,15 @@ type Proposal =
 -- This is needed to define clean `FromJSON` instance,
 --   consider simplifying
 data ProposalText = ProposalText {
-    ptDescription :: Text
-  , ptNewPolicy :: Map Text (Text, Text)
+    description :: Text
+  , newPolicy :: Map Text (Text, Text)
   } deriving (Generic, FromJSON)
 
 proposalText2Proposal :: ProposalText -> Maybe Proposal
 proposalText2Proposal ProposalText{..} = do
-    decoded <- traverse decodeHU ptNewPolicy
+    decoded <- traverse decodeHU newPolicy
     pure 
-      ( #description $ mkMTextUnsafe ptDescription
+      ( #description $ mkMTextUnsafe description
       , #newPolicy $ #urls $ M.mapKeys mkMTextUnsafe decoded)
   where
     decodeHU (hash, url) = (, mkMTextUnsafe url) <$> decodeHex hash

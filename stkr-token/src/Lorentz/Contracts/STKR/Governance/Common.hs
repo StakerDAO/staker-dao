@@ -109,6 +109,8 @@ calcWinner = do
       else dip drop
     dug @3
     dip swap
+    push @Natural 1
+    add
   drop # drop # drop
 
 checkNotStages

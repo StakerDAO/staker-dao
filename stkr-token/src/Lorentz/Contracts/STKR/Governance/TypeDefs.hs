@@ -1,3 +1,5 @@
+{-# LANGUAGE NoRebindableSyntax #-}
+
 module Lorentz.Contracts.STKR.Governance.TypeDefs
   ( Hash
   , URL
@@ -13,9 +15,9 @@ module Lorentz.Contracts.STKR.Governance.TypeDefs
   ) where
 
 import Util.Named ((:!))
-import Prelude (Show)
+import Prelude (Show, Traversable(..), (<$>))
 import Data.Map as M
-import Data.Text.Encoding (encodeUtf8)
+import Text.Hex (decodeHex)
 import Data.Aeson (FromJSON)
 
 import Lorentz
@@ -46,13 +48,14 @@ data ProposalText = ProposalText {
   , ptNewPolicy :: Map Text (Text, Text)
   } deriving (Generic, FromJSON)
 
-proposalText2Proposal :: ProposalText -> Proposal
-proposalText2Proposal ProposalText{..} =
-    ( #description $ mkMTextUnsafe ptDescription
-    , #newPolicy $ #urls urls)
+proposalText2Proposal :: ProposalText -> Maybe Proposal
+proposalText2Proposal ProposalText{..} = do
+    decoded <- traverse decodeHU ptNewPolicy
+    pure 
+      ( #description $ mkMTextUnsafe ptDescription
+      , #newPolicy $ #urls $ M.mapKeys mkMTextUnsafe decoded)
   where
-    urls = M.mapKeys (mkMTextUnsafe) . M.map decodeHU $ ptNewPolicy
-    decodeHU (hash, url) = (encodeUtf8 hash, mkMTextUnsafe url)
+    decodeHU (hash, url) = (, mkMTextUnsafe url) <$> decodeHex hash
 
 type ProposalAndHash = ("proposal" :! Proposal, "proposalHash" :! Blake2BHash)
 

@@ -37,7 +37,7 @@ library:
     - haskeline
     - cryptonite
     - text
-    - turtle
+    - process
     - singletons
     - fmt
     - microlens
@@ -63,6 +63,8 @@ executables:
       - optparse-applicative
       - turtle
       - text
+    ghc-options:
+      - -threaded # IMPORTANT!
 
   stkr-token-test-end2end:
     <<: *lorentz-default-extensions

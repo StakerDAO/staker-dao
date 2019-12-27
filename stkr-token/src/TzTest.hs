@@ -34,8 +34,12 @@ import Data.Singletons (SingI)
 import Data.Text.Lazy (toStrict)
 import qualified Data.Text as T
 import Fmt (Buildable, pretty)
-import Turtle (Line, Shell)
-import qualified Turtle
+import System.Process (proc, CreateProcess(..), StdStream(..), createProcess, waitForProcess)
+import System.Exit (ExitCode)
+import qualified Control.Exception as E
+import System.IO (hGetContents, hPutStr, hGetBuffering, hSetBuffering, BufferMode(..))
+import Control.Concurrent (forkIO, killThread)
+import System.Environment (getEnvironment)
 import Data.Aeson (FromJSON)
 import qualified Data.Yaml as Yaml
 import Lens.Micro (ix)
@@ -74,18 +78,49 @@ runTzTest = runReaderT
 exec :: [Text] -> TzTest Text
 exec args = execWithShell args id
 
-execWithShell :: [Text] -> (Shell Line -> Shell Line) -> TzTest Text
+-- For this to work well, you SHALL link with `threaded` RTS!!!
+-- Stdin, and stderr are inherited!
+callProcessWithReadStdout :: FilePath -> [String] -> Maybe [(String, String)] -> IO (ExitCode, String)
+callProcessWithReadStdout cmd args penv = do
+  bufMode <- hGetBuffering stdout
+  hSetBuffering stdout NoBuffering
+  (_, Just hout, _, p) <- createProcess $ (proc cmd args) {env = penv, std_out = CreatePipe, delegate_ctlc = True}
+  outref <- newIORef id
+  -- NOTE: do we need this with `-threaded`?
+  fin <- newEmptyMVar
+  let getout = do
+        ec <- E.try @E.IOException (hGetContents hout)
+        case ec of
+          Right c -> do
+            modifyIORef outref (. (++ c))
+            System.IO.hPutStr stdout c
+            getout
+          _ -> putMVar fin ()
+  t <- forkIO getout
+  ec <- waitForProcess p
+  () <- readMVar fin
+  killThread t
+  hSetBuffering stdout bufMode
+  ds <- readIORef outref
+  pure (ec, ds [])
+
+execWithShell :: [Text] -> (IO String -> IO String) -> TzTest Text
 execWithShell args shellTransform = do
   Env{..} <- ask
-  Turtle.export "TEZOS_CLIENT_UNSAFE_DISABLE_DISCLAIMER" "YES"
-  -- putTextLn $ "Executing command: " <> T.intercalate " " args
-  let outputShell =
-        Turtle.inproc envTezosClientCmd
-          ([ "-A", envNode
-           , "-P", show envNodePort
-           ] <> args)
-          Turtle.empty
-  liftIO . Turtle.strict . shellTransform $ outputShell
+  let outputShell = do
+        let allargs =
+              [ "-A", envNode
+              , "-P", show envNodePort
+              ] <> args
+        -- putTextLn $ "EXEC!: " <> envTezosClientCmd <> " " <> T.intercalate " " allargs
+        e <- getEnvironment
+        -- Ignore exit code ATM
+        (_r, o) <- callProcessWithReadStdout (T.unpack envTezosClientCmd) (map T.unpack allargs) (Just $ modenv e)
+        -- putStr $ "RECV!: " ++ o
+        return o
+  liftIO $ T.pack <$> shellTransform outputShell
+  where
+    modenv e = ("TEZOS_CLIENT_UNSAFE_DISABLE_DISCLAIMER", "YES") : e
 
 data TransferP a = TransferP
   { tpQty :: Mutez

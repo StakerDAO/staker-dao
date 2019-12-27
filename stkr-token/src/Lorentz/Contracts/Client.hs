@@ -89,10 +89,9 @@ callViaMultisig
   => Msig.Label cName -> it -> ViaMultisigOptions -> TzTest ()
 callViaMultisig label stkrParam ViaMultisigOptions {..} = do
   let order = Msig.mkCallOrderWrap @STKR.Parameter (Msig.Unsafe vmoStkr) label stkrParam
-  chainId <- Tz.getMainChainId
   let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage vmoMsig
   nonce <- maybe getNonce pure vmoNonce
-  let toSign = Msig.ValueToSign chainId nonce order
+  let toSign = Msig.ValueToSign vmoMsig nonce order
   let bytes = lPackValue toSign
   pkSigs <- vmoSign bytes
   let param = Msig.Parameter order nonce pkSigs

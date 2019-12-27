@@ -67,7 +67,7 @@ ensureQuorum = do
 packParameter :: Parameter : s1 :-> ByteString : s1
 packParameter = do
   constructT @ValueToSign $
-    ( fieldCtor $ chainId
+    ( fieldCtor $ self @Parameter # address
     , fieldCtor $ getField #nonce
     , fieldCtor $ getField #order
     )

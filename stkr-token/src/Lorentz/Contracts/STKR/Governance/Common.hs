@@ -110,7 +110,7 @@ calcWinner = do
   push @Natural 0
   swap
   iter $ do
-    car # fromNamed #proposal
+    cdr # toField #proposal
     dip $ do
       dup
       dip $ do

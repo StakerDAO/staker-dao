@@ -9,14 +9,16 @@ import Lorentz
 import Fmt (Buildable(..), Builder, blockMapF, jsonListF, mapF', base64F, (+|), (|+))
 import Tezos.Crypto (formatKeyHash)
 
-import Lorentz.Contracts.STKR.Governance.TypeDefs (Proposal, ProposalAndHash, Hash, URL, Policy)
+import Lorentz.Contracts.STKR.Governance.TypeDefs
+  (Proposal, ProposalAndHash, ProposalId, Hash, URL, Policy)
 import Lorentz.Contracts.STKR.Parameter (PublicEntrypointParam(..))
 
 data Storage = Storage
   { owner :: Address
   , councilKeys :: Set KeyHash
   , policy :: Policy
-  , proposals :: [ProposalAndHash]
+  , proposals :: Map ProposalId ProposalAndHash
+  , lastProposalId :: Natural
   , votes :: Map KeyHash ("proposalId" :! Natural)
   , stageCounter :: Natural
   -- ^ @stageCounter `div` 4@ is current epoch and @stageCounter `mod` 4@

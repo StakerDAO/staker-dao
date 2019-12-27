@@ -9,6 +9,7 @@ module Lorentz.Contracts.STKR.Governance.TypeDefs
   , Proposal
   , proposalText2Proposal
   , ProposalAndHash
+  , ProposalId
   , VoteForProposalParams
   , CouncilDataToSign(..)
   , TimeConfig(..)
@@ -25,9 +26,11 @@ import Michelson.Text (mkMText)
 
 type Hash = ByteString
 type URL = MText
+type ProposalId = Natural
 
 newtype Blake2BHash = Blake2BHash ByteString
-  deriving newtype (IsoValue, Show, Eq)
+  deriving stock Generic
+  deriving newtype (IsoValue, IsoCValue, Show, Eq, CompareOpHs)
 
 blake2B_ :: ByteString & s :-> Blake2BHash & s
 blake2B_ = blake2B # coerce_
@@ -70,7 +73,7 @@ proposalText2Proposal ProposalText{..} = do
 type ProposalAndHash = ("proposal" :! Proposal, "proposalHash" :! Blake2BHash)
 
 type VoteForProposalParams =
-  ( "proposalId" :! Natural
+  ( "proposalId" :! ProposalId
   , "votePk" :! PublicKey
   , "voteSig" :! Signature
   )
@@ -89,3 +92,7 @@ data TimeConfig =
            , _stageDuration :: Natural
            }
   | ProdTC { _startYear :: Natural }
+
+instance TypeHasDoc Blake2BHash where
+  typeDocName _ = "Blake2BHash"
+  typeDocMdDescription = "A typed wrapper over ByteString that represents a blake2b hash."

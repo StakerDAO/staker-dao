@@ -57,7 +57,8 @@ originate OriginateParams{..} = do
             STKR.Storage
               { owner = fromContractAddr msig
               , councilKeys = Set.fromList (hashKey <$> opCouncilKeys)
-              , proposals = []
+              , proposals = Map.empty
+              , lastProposalId = 0
               , votes = Map.empty
               , policy = #urls Map.empty
               , stageCounter = 0

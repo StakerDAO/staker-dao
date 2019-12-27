@@ -56,7 +56,8 @@ testStorage = Storage
   { owner = genesisAddress
   , councilKeys = (Set.fromList testCouncilKeys)
   , policy = #urls $ newUrls [1,2]
-  , proposals = []
+  , proposals = M.empty
+  , lastProposalId = 0
   , votes = M.empty
   , stageCounter = 0
   , totalSupply = 0
@@ -187,10 +188,11 @@ spec_calcWinner = do
     urls3 = newUrls [3, 4, 5]
     run voters pids = do
       let storage = testStorage
-            { proposals = [ mkPrNHash "gago" urls1 "gagohash"
-                          , mkPrNHash "swin" urls2 "swinhash"
-                          , mkPrNHash "boro" urls3 "borohash"
-                          ]
+            { proposals = M.fromList $
+                  [ (1, mkPrNHash "gago" urls1 "gagohash")
+                  , (2, mkPrNHash "swin" urls2 "swinhash")
+                  , (3, mkPrNHash "boro" urls3 "borohash")
+                  ]
             , votes = mkVotes $ zip voters pids
             }
       let initStack = (Identity storage :& RNil)

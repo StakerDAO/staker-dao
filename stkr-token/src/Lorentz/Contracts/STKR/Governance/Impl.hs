@@ -5,11 +5,12 @@ module Lorentz.Contracts.STKR.Governance.Impl
   ) where
 
 import Lorentz
-import Lorentz.Contracts.Common (ensureSignatureValid, listAt)
+import Lorentz.Contracts.Common (ensureSignatureValid, dupTop2)
 import Lorentz.Contracts.STKR.Governance.Common
   (calcWinner, checkNotStages, checkPkCanVote, checkStage, splitCounter)
 import Lorentz.Contracts.STKR.Governance.TypeDefs
-  (Blake2BHash, CouncilDataToSign, Proposal, VoteForProposalParams, blake2B_)
+  (Blake2BHash, CouncilDataToSign, Proposal, ProposalAndHash, ProposalId,
+   VoteForProposalParams, blake2B_)
 import Lorentz.Contracts.STKR.Parameter (Parameter)
 import Lorentz.Contracts.STKR.Storage (Storage)
 
@@ -34,9 +35,35 @@ newProposal curStage = do
   toNamed #proposal
   pair
   dip (getField #proposals)
-  cons
+  dupTop2; ensureNotSubmitted
+  some
+  dipN @2 $ do
+    getField #lastProposalId
+    push @Natural 1
+    add
+    dup
+    dip $ setField #lastProposalId
+  dig @2
+  update
+  stackType @'[Map ProposalId ProposalAndHash, Storage]
   setField #proposals
   nil; pair
+
+  where
+    ensureNotSubmitted :: ProposalAndHash & Map ProposalId ProposalAndHash & s :-> s
+    ensureNotSubmitted = do
+      toFieldNamed #proposalHash
+      swap
+      iter $ do
+        cdr
+        toField #proposalHash
+        dip (dup # fromNamed #proposalHash)
+        if IsEq
+        then failCustom #duplicateProposal
+        else nop
+      drop @("proposalHash" :! Blake2BHash)
+
+
 
 type GetCurrentStage = forall s. s :-> Natural & s
 
@@ -76,7 +103,7 @@ updateStorage curStage = do
             if IsSome
               then setField #policy
               else nop
-            nil
+            emptyMap
             setField #proposals
             emptyMap
             setField #votes
@@ -105,17 +132,17 @@ voteForProposal curStage = do
     dip (toField #voteSig # swap # toField #proposals)
 
   -- Get proposal from storage
-  stackType @'[PublicKey, "proposalId" :! Natural, _, Signature, Storage]
+  stackType @'[PublicKey, "proposalId" :! ProposalId, _, Signature, Storage]
   dug @2
   dup
   fromNamed #proposalId
-  dig @2
-  listAt
+  dip swap
+  get
 
   if IsSome
     then do
       toField #proposalHash
-      stackType @'[Blake2BHash, "proposalId" :! Natural, PublicKey, Signature, Storage]
+      stackType @'[Blake2BHash, "proposalId" :! ProposalId, PublicKey, Signature, Storage]
 
       -- Check signature
       construct @CouncilDataToSign
@@ -124,7 +151,7 @@ voteForProposal curStage = do
           :& fieldCtor (dipN @4 (getField #stageCounter) # dig @4)
           :& RNil )
       dip drop
-      stackType @'[CouncilDataToSign, "proposalId" :! Natural, PublicKey, Signature, Storage]
+      stackType @'[CouncilDataToSign, "proposalId" :! ProposalId, PublicKey, Signature, Storage]
       pack
       dig @2
       dup
@@ -133,7 +160,7 @@ voteForProposal curStage = do
         ensureSignatureValid
 
       -- Update storage
-      stackType @'[PublicKey, "proposalId" :! Natural, Storage]
+      stackType @'[PublicKey, "proposalId" :! ProposalId, Storage]
       hashKey
       dip some
       dipN @2 (getField #votes)

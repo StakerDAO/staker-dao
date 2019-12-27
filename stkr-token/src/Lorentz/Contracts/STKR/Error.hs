@@ -5,6 +5,8 @@ module Lorentz.Contracts.STKR.Error
 
 import Lorentz
 
+import Lorentz.Contracts.STKR.Governance.TypeDefs (Blake2BHash)
+
 type instance ErrorArg "senderCheckFailed" = Address
 instance (CustomErrorHasDoc "senderCheckFailed") where
   customErrClass = ErrClassActionException
@@ -43,6 +45,13 @@ instance (CustomErrorHasDoc "wrongStage") where
   customErrDocMdCause = "Invalid stage for a request"
   customErrArgumentSemantics =
     Just "invalid stage for a request"
+
+type instance ErrorArg "duplicateProposal" = "proposalHash" :! Blake2BHash
+instance (CustomErrorHasDoc "duplicateProposal") where
+  customErrClass = ErrClassActionException
+  customErrDocMdCause = "The proposal already exists"
+  customErrArgumentSemantics =
+    Just "the proposal already exists"
 
 type instance ErrorArg "notEnoughFunds" = Integer
 instance (CustomErrorHasDoc "notEnoughFunds") where

@@ -20,7 +20,8 @@ type Hash = ByteString
 type URL = MText
 
 newtype Blake2BHash = Blake2BHash ByteString
-  deriving newtype (IsoValue, Show, Eq)
+  deriving stock Generic
+  deriving newtype (IsoValue, IsoCValue, Show, Eq, CompareOpHs)
 
 blake2B_ :: ByteString & s :-> Blake2BHash & s
 blake2B_ = blake2B # coerce_
@@ -56,3 +57,7 @@ data TimeConfig =
            , _stageDuration :: Natural
            }
   | ProdTC { _firstYear :: Natural }
+
+instance TypeHasDoc Blake2BHash where
+  typeDocName _ = "Blake2BHash"
+  typeDocMdDescription = "A typed wrapper over ByteString that represents a blake2b hash."

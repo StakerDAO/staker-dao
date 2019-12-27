@@ -5,11 +5,12 @@ module Lorentz.Contracts.STKR.Governance.Impl
   ) where
 
 import Lorentz
-import Lorentz.Contracts.Common (ensureSignatureValid, listAt)
+import Lorentz.Contracts.Common (ensureSignatureValid, listAt, dupTop2)
 import Lorentz.Contracts.STKR.Governance.Common
   (calcWinner, checkNotStages, checkPkCanVote, checkStage, splitCounter)
 import Lorentz.Contracts.STKR.Governance.TypeDefs
-  (Blake2BHash, CouncilDataToSign, Proposal, VoteForProposalParams, blake2B_)
+  (Blake2BHash, CouncilDataToSign, Proposal, ProposalAndHash,
+   VoteForProposalParams, blake2B_)
 import Lorentz.Contracts.STKR.Misc (EnsureOwner, ensureOwnerI)
 import Lorentz.Contracts.STKR.Parameter (Parameter)
 import Lorentz.Contracts.STKR.Storage (Storage)
@@ -37,9 +38,25 @@ newProposal curStage = do
   toNamed #proposal
   pair
   dip (getField #proposals)
+  dupTop2; ensureNotInList
   cons
   setField #proposals
   nil; pair
+
+  where
+    ensureNotInList :: ProposalAndHash & [ProposalAndHash] & s :-> s
+    ensureNotInList = do
+      toFieldNamed #proposalHash
+      swap
+      iter $ do
+        toField #proposalHash
+        dip (dup # fromNamed #proposalHash)
+        if IsEq
+        then failCustom #duplicateProposal
+        else nop
+      drop @("proposalHash" :! Blake2BHash)
+
+
 
 type GetCurrentStage = forall s. s :-> Natural & s
 

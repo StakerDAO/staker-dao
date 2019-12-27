@@ -1,2 +1,5 @@
 .stack-work/
 *~
+result
+dist
+tezos-client

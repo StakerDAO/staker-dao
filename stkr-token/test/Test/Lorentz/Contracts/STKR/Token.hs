@@ -38,7 +38,7 @@ spec_Transfer = do
       failWhenNot (ledger ^. at wallet1 == Just 50) "Withraw from wallet1 not equal to 100"
       failWhenNot (ledger ^. at wallet2 == Just 100) "Credit to wallet2 not equal to 100"
 
-  it "trasnfer removes wallet from ledger if its balance drops to zero"
+  it "transfer removes wallet from ledger if its balance drops to zero"
     . integrationalTestExpectation $ do
       let transferParam = (#from .! wallet1, #to .! wallet2, #value .! 150)
       (msig, stkr) <- originate $ OriginateParams

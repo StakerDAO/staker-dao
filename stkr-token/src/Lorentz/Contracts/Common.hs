@@ -67,14 +67,14 @@ listAt = do
   iter $ do
     dip swap
     swap
-    push @Integer 1
-    rsub
     dup
     if IsZero
       then
         dipN @2 drop # dip some
       else
         swap # drop
+    push @Integer 1
+    rsub
     swap
   dip drop
 

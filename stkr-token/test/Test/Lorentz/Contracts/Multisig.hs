@@ -14,7 +14,6 @@ import qualified Lorentz as L
 import Lorentz.Pack (lPackValue)
 import Lorentz.Test
 import Test.Hspec (Spec, it)
-import Tezos.Core (dummyChainId, mkChainIdUnsafe)
 import Tezos.Crypto (KeyHash, PublicKey, SecretKey, detSecretKey, hashKey, sign, toPublic)
 
 import Lorentz.Contracts.Client (multisignValue)
@@ -63,14 +62,19 @@ newTeamPKHs = Set.fromList $ hashKey . pk <$> [1, 2, 3, 8, 9, 10]
 flagContract :: L.Contract () Bool
 flagContract = L.drop # L.push True # L.nil # L.pair
 
+-- | An address not equal to the multisig address
+someRandomAddress :: L.Address
+someRandomAddress = genesisAddress5
+
 -- | An utility function that signs the order and calls Multisig
--- with the correct parameter.
-callMsig
-  :: L.ContractRef Parameter -> L.ChainId -> Natural -> Order
+-- with the correct parameter. An extended version that accepts
+-- a custom multisig address for signatures.
+callMsig'
+  :: L.ContractRef Parameter -> L.Address -> Natural -> Order
   -> [SecretKey] -> IntegrationalScenarioM ()
-callMsig msig chainId nonce order teamSecretKeys = do
+callMsig' msig addr nonce order teamSecretKeys = do
   let toSign = ValueToSign
-            { vtsChainId = chainId
+            { vtsMultisigAddress = addr
             , vtsNonce = nonce
             , vtsOrder = order
             }
@@ -83,6 +87,13 @@ callMsig msig chainId nonce order teamSecretKeys = do
       , signatures = signatures
       }
 
+-- | An utility function that signs the order and calls Multisig
+-- with the correct parameter.
+callMsig
+  :: L.ContractRef Parameter -> Natural -> Order
+  -> [SecretKey] -> IntegrationalScenarioM ()
+callMsig msig = callMsig' msig (L.fromContractAddr msig)
+
 spec_Call :: Spec
 spec_Call = do
   it "makes a requested call if everything is correct (3 of 5 signatures)" $
@@ -91,7 +102,7 @@ spec_Call = do
       flag <- lOriginate flagContract "flag" False (L.toMutez 0)
       let order = mkCallOrder (Ref flag) ()
 
-      callMsig msig dummyChainId 1 order (take 3 secretKeys)
+      callMsig msig 1 order (take 3 secretKeys)
       validate . Right $ lExpectStorageConst flag True
 
   it "makes a requested call if everything is correct (3 of 4 signatures)" $
@@ -100,7 +111,7 @@ spec_Call = do
       flag <- lOriginate flagContract "flag" False (L.toMutez 0)
       let order = mkCallOrder (Ref flag) ()
 
-      callMsig msig dummyChainId 1 order (take 3 secretKeys)
+      callMsig msig 1 order (take 3 secretKeys)
       validate . Right $ lExpectStorageConst flag True
 
   it "fails if call parameter is of incorrect type" $
@@ -110,7 +121,7 @@ spec_Call = do
       let flagAddr = L.fromContractAddr flag
       let wrongOrder = mkCallOrder (Unsafe flagAddr) (777 :: Natural)
 
-      callMsig msig dummyChainId 1 wrongOrder (take 3 secretKeys)
+      callMsig msig 1 wrongOrder (take 3 secretKeys)
       validate . Left $
         lExpectCustomError #invalidStakerContract ()
 
@@ -125,7 +136,7 @@ spec_RotateKeys = do
       let order = mkRotateKeysOrder newTeamPKHs
       msig <- originate publicKeys
 
-      callMsig msig dummyChainId 1 order (take 3 secretKeys)
+      callMsig msig 1 order (take 3 secretKeys)
       validate . Right $ lExpectStorageConst msig Storage
         { teamKeys = newTeamPKHs
         , currentNonce = 1
@@ -136,7 +147,7 @@ spec_RotateKeys = do
       let order = mkRotateKeysOrder newTeamPKHs
       msig <- originate $ take 4 publicKeys
 
-      callMsig msig dummyChainId 1 order (take 3 secretKeys)
+      callMsig msig 1 order (take 3 secretKeys)
       validate . Right $ lExpectStorageConst msig Storage
         { teamKeys = newTeamPKHs
         , currentNonce = 1
@@ -146,17 +157,16 @@ spec_RotateKeys = do
     return $ mkRotateKeysOrder newTeamPKHs
 
 -- | Specification of general failures that can occur during contract
--- calls, i.e. invalid chain id, nonce, signature, and too little
+-- calls, i.e. invalid multisig address, nonce, signature, and too little
 -- amount of signers.
 generalFailuresSpec :: IntegrationalScenarioM Order -> Spec
 generalFailuresSpec mkOrder = do
-  it "fails if chain id is incorrect" $
+  it "fails if multisig address is incorrect" $
     integrationalTestExpectation $ do
       order <- mkOrder
       msig <- originate publicKeys
-      let wrongChainId = mkChainIdUnsafe "1234"
 
-      callMsig msig wrongChainId 1 order (take 3 secretKeys)
+      callMsig' msig someRandomAddress 1 order (take 3 secretKeys)
       validate . Left $
         lExpectCustomError #invalidSignature (pk 1)
 
@@ -166,7 +176,7 @@ generalFailuresSpec mkOrder = do
       msig <- originate publicKeys
       let wrongNonce = 2
 
-      callMsig msig dummyChainId wrongNonce order (take 3 secretKeys)
+      callMsig msig wrongNonce order (take 3 secretKeys)
       validate . Left $
         lExpectCustomError #invalidNonce ()
 
@@ -176,7 +186,7 @@ generalFailuresSpec mkOrder = do
       msig <- originate publicKeys
       let lessThanQuorumKeys = take 2 secretKeys
 
-      callMsig msig dummyChainId 1 order lessThanQuorumKeys
+      callMsig msig 1 order lessThanQuorumKeys
       validate . Left $
         lExpectCustomError #majorityQuorumNotReached ()
 
@@ -186,7 +196,7 @@ generalFailuresSpec mkOrder = do
       msig <- originate $ take 4 publicKeys
       let lessThanQuorumKeys = take 2 secretKeys
 
-      callMsig msig dummyChainId 1 order lessThanQuorumKeys
+      callMsig msig 1 order lessThanQuorumKeys
       validate . Left $
         lExpectCustomError #majorityQuorumNotReached ()
 
@@ -197,7 +207,7 @@ generalFailuresSpec mkOrder = do
       let sk1 = sk 1
       let multipleIdenticalKeys = [sk1, sk1, sk1] ++ take 1 secretKeys
 
-      callMsig msig dummyChainId 1 order multipleIdenticalKeys
+      callMsig msig 1 order multipleIdenticalKeys
       validate . Left $
         lExpectCustomError #majorityQuorumNotReached ()
 
@@ -206,7 +216,7 @@ generalFailuresSpec mkOrder = do
       order <- mkOrder
       msig <- originate $ take 4 publicKeys
 
-      callMsig msig dummyChainId 1 order []
+      callMsig msig 1 order []
       validate . Left $
         lExpectCustomError #majorityQuorumNotReached ()
 
@@ -223,7 +233,7 @@ wrongKeySpec mkOrder positions =
         msig <- originate publicKeys
         let wrongKeys = secretKeys & ix (pos - 1) .~ evilSK
 
-        callMsig msig dummyChainId 1 order wrongKeys
+        callMsig msig 1 order wrongKeys
         validate . Left $
           lExpectCustomError #invalidSignature evilPK
 
@@ -237,7 +247,7 @@ wrongSignatureSpec mkOrder positions =
         msig <- originate publicKeys
         let nonce = 1
         let toSign = ValueToSign
-              { vtsChainId = dummyChainId
+              { vtsMultisigAddress = L.fromContractAddr msig
               , vtsNonce = nonce
               , vtsOrder = order
               }

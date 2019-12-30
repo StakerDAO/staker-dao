@@ -88,7 +88,7 @@ callWithMultisig
 callWithMultisig msig nonce teamSecretKeys stkr label innerParam = do
   let order = mkCallOrderWrap (Ref stkr) label innerParam
   let toSign = Multisig.ValueToSign
-        { vtsChainId = dummyChainId
+        { vtsMultisigAddress = fromContractAddr msig
         , vtsNonce = nonce
         , vtsOrder = order
         }

@@ -94,6 +94,7 @@ tests:
       - stkr-token
       - morley
       - morley-prelude
+      - lorentz-contracts
       - microlens
       - QuickCheck
       - tasty

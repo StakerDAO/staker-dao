@@ -1,6 +1,6 @@
-module Lorentz.Contracts.STKR.Misc.Impl
-  ( ensureOwnerI
-  , ensureOwner
+module Lorentz.Contracts.STKR.Misc.EnsureOwner
+  ( ensureOwner
+  , withOwnerEnsured
   ) where
 
 import Lorentz
@@ -10,8 +10,8 @@ import Lorentz.Contracts.STKR.Error ()
 import Lorentz.Contracts.STKR.Misc.TypeDefs
 import Lorentz.Contracts.STKR.Storage (Storage)
 
-ensureOwnerI :: forall a s. EnsureOwner a & Storage & s :-> a & s
-ensureOwnerI= do
+ensureOwner :: forall a s. EnsureOwner a & Storage & s :-> a & s
+ensureOwner= do
   dip $ do
     toField #owner
     sender
@@ -21,12 +21,12 @@ ensureOwnerI= do
     else failCustom #senderCheckFailed
   coerce_
 
-ensureOwner
+withOwnerEnsured
   :: forall a si sr.
   a & Storage & si :-> sr
   -> EnsureOwner a & Storage & si :-> sr
-ensureOwner instr = do
+withOwnerEnsured instr = do
   duupX @2
   swap
-  ensureOwnerI
+  ensureOwner
   instr

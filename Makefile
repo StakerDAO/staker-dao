@@ -27,7 +27,7 @@ repl:
 	nix-shell --run 'cd stkr-token && hpack && cabal repl'
 
 shell:
-	nix-shell
+	nix-shell --command 'cd stkr-token && hpack; return'
 
 build:
 	nix-build

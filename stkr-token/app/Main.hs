@@ -48,13 +48,12 @@ localCmdRunner = \case
       L.printLorentzContract False (STKR.stkrContract tc)
 
 callViaMultisig
-  :: Msig.TransferOrderWrapC STKR.Parameter cName it
-  => Msig.Label cName -> it -> ViaMultisigOptions -> TzTest ()
-callViaMultisig label stkrParam ViaMultisigOptions {..} = do
+  :: STKR.OpsTeamEntrypointParam -> ViaMultisigOptions -> TzTest ()
+callViaMultisig stkrParam ViaMultisigOptions {..} = do
   fromAddr <- Tz.resolve' Tz.AddressAlias vmoFrom
   msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
   stkrAddr <- Tz.resolve' Tz.ContractAlias vmoStkr
-  Client.callViaMultisig label stkrParam $ Client.ViaMultisigOptions
+  Client.callViaMultisig stkrParam $ Client.ViaMultisigOptions
     { vmoFrom = fromAddr
     , vmoMsig = msigAddr
     , vmoStkr = stkrAddr
@@ -85,12 +84,12 @@ remoteCmdRunner = \case
         }
     putTextLn $ "Deploy result: " +| addrs |+ ""
   NewProposal NewProposalOptions {..} ->
-    callViaMultisig #cNewProposal (STKR.EnsureOwner npProposal) npViaMultisig
+    callViaMultisig (STKR.NewProposal npProposal) npViaMultisig
   NewCouncil NewCouncilOptions {..} -> do
     let genCouncil (prefix, n) =
           mapM (\i -> fmap hashKey . Tz.generateKey $ prefix <> "_key_" <> show i) [1..n]
     council <- either (fmap Set.fromList . genCouncil) pure ncCouncil
-    callViaMultisig #cNewCouncil (STKR.EnsureOwner council) ncViaMultisig
+    callViaMultisig (STKR.NewCouncil council) ncViaMultisig
   VoteForProposal VoteForProposalOptions {..} -> do
     fromAddr <- Tz.resolve' Tz.AddressAlias vpFrom
     stkrAddr <- Tz.resolve' Tz.ContractAlias vpStkr

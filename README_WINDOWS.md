@@ -37,7 +37,9 @@ sufficiently recent 'glibc' (most non-ancient "mainstream" distros) you may well
 stop here, 99% it will work under WSL.
 
 You shall still install 'libhidapi-libusb0' required by Tezos client:
-`sudo apt install libhidapi-libusb0`
+```
+sudo apt install libhidapi-libusb0
+```
 
 If you don't have Linux binaries of these available, look further.
 
@@ -60,17 +62,23 @@ use-sqlite-wal = false
 'HKLM\SYSTEM\CurrentControlSet\Control\FileSystem' 'LongPathsEnabled' key's value to 1.
 
 3. Only then install "Nix":
-`curl https://nixos.org/nix/install | sh`
+```
+curl https://nixos.org/nix/install | sh
+```
 
 4. After the installation finishes, either log out and then back in, or run
-`. /home/your_user_name/.nix-profile/etc/profile.d/nix.sh`
+```
+. /home/your_user_name/.nix-profile/etc/profile.d/nix.sh
+```
 (nix will remind you to do this).
 
 
 ## Build StakerDAO
 
 1. Install 'make':
-`sudo apt install make`
+```
+sudo apt install make
+```
 
 2. Clone 'staker-dao' repo and build the project
 
@@ -94,10 +102,14 @@ to do this a couple of dozens of times).
 of opam is 2.0.5 (you may replace "2.0.5" everywhere below with something newer if any):
 
 * Install prerequisites
-`sudo apt install -y rsync git m4 build-essential patch unzip wget libev-dev libhidapi-dev`
+```
+sudo apt install -y rsync git m4 build-essential patch unzip wget libev-dev libhidapi-dev
+```
 
 * Download opam
-`wget https://github.com/ocaml/opam/releases/download/2.0.5/opam-2.0.5-x86_64-linux`
+```
+wget https://github.com/ocaml/opam/releases/download/2.0.5/opam-2.0.5-x86_64-linux
+```
 
 * copy it to the standard location (may copy to any location in your PATH) and mark executable
 ```
@@ -129,4 +141,6 @@ make
 
 4. If all is ok (it should), you can find tezos client as '_build/default/src/bin_client/main_client.exe',
 now you shall rename/copy it to the staker-dao directory:
-`cp _build/default/src/bin_client/main_client.exe the_dir_where_you_cloned_staker-dao/staker-dao/tezos-client`
+```
+cp _build/default/src/bin_client/main_client.exe the_dir_where_you_cloned_staker-dao/staker-dao/tezos-client
+```

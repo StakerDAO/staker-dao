@@ -38,6 +38,7 @@ library:
     - singletons
     - fmt
     - microlens
+    - time
     - yaml
     - vinyl
 
@@ -99,4 +100,5 @@ tests:
       - QuickCheck
       - tasty
       - tasty-hspec
+      - time
       - vinyl

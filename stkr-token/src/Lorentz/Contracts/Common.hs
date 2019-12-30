@@ -6,6 +6,7 @@ module Lorentz.Contracts.Common
   , listAt
   , ensureSignatureValid
   , countMapEls
+  , module Date
   ) where
 
 import Michelson.Typed (IterOpEl, T (Tc))
@@ -13,6 +14,8 @@ import Data.Typeable (Typeable)
 import Data.Singletons (SingI)
 import Lorentz
 import Michelson.Typed.Haskell.Value (IsComparable)
+
+import Lorentz.Contracts.Common.Date as Date
 
 -- | Duplicates first two stack entries.
 dupTop2 :: a ': b ': s :-> a ': b ': a ': b ': s

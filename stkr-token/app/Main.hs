@@ -87,8 +87,8 @@ remoteCmdRunner = \case
   NewProposal NewProposalOptions {..} -> do
     mbProposal <- liftIO $ STKR.proposalText2Proposal <$> Yaml.decodeFileThrow @IO @_ npProposalFile
     case mbProposal of
-      Nothing -> fail "Wrong hash occurred ..."
-      Just prop -> callViaMultisig #cNewProposal (STKR.EnsureOwner prop) npViaMultisig
+      Left err -> fail $ toString err
+      Right prop -> callViaMultisig #cNewProposal (STKR.EnsureOwner prop) npViaMultisig
   NewCouncil NewCouncilOptions {..} -> do
     let genCouncil (prefix, n) =
           mapM (\i -> fmap hashKey . Tz.generateKey $ prefix <> "_key_" <> show i) [1..n]

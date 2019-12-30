@@ -15,13 +15,13 @@ module Lorentz.Contracts.STKR.Governance.TypeDefs
   ) where
 
 import Util.Named ((:!))
-import Prelude (Show, Traversable(..), (<$>))
+import Prelude (Show, Traversable(..), (<$>), maybe)
 import Data.Map as M
 import Text.Hex (decodeHex)
 import Data.Aeson (FromJSON)
 
 import Lorentz
-import Michelson.Text (mkMTextUnsafe)
+import Michelson.Text (mkMText)
 
 type Hash = ByteString
 type URL = MText
@@ -48,14 +48,24 @@ data ProposalText = ProposalText {
   , newPolicy :: Map Text (Text, Text)
   } deriving (Generic, FromJSON)
 
-proposalText2Proposal :: ProposalText -> Maybe Proposal
+proposalText2Proposal :: ProposalText -> Either Text Proposal
 proposalText2Proposal ProposalText{..} = do
-    decoded <- traverse decodeHU newPolicy
+    decodedVals <- traverse decodeHU newPolicy
+    decoded <- M.fromList <$> (mapM decodeUrl $ M.toList decodedVals)
+    decodedDescription <- mkMText description
     pure 
-      ( #description $ mkMTextUnsafe description
-      , #newPolicy $ #urls $ M.mapKeys mkMTextUnsafe decoded)
+      ( #description $ decodedDescription
+      , #newPolicy $ #urls decoded)
   where
-    decodeHU (hash, url) = (, mkMTextUnsafe url) <$> decodeHex hash
+    decodeUrl (turl, v) = do
+      url <- mkMText turl
+      return (url, v)
+    decodeHU (thash, turl) = do
+      hash <- decodeHex' thash
+      url <- mkMText turl
+      return (hash, url)
+    decodeHex' txt = maybe (Left $ "Invalid hash: " <> txt) Right $ decodeHex txt
+
 
 type ProposalAndHash = ("proposal" :! Proposal, "proposalHash" :! Blake2BHash)
 

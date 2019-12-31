@@ -53,7 +53,7 @@ proposalText2Proposal ProposalText{..} = do
     decodedVals <- traverse decodeHU newPolicy
     decoded <- M.fromList <$> (mapM decodeUrl $ M.toList decodedVals)
     decodedDescription <- mkMText description
-    pure 
+    pure
       ( #description $ decodedDescription
       , #newPolicy $ #urls decoded)
   where

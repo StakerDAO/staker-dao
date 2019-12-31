@@ -42,10 +42,10 @@ data Order
   deriving anyclass IsoValue
 
 -- | Value that the participants should sign. Includes nonce to
--- prevent replay attacks and chain id to prevent cross-chain
--- replays.
+-- prevent replay attacks and the multisig address to prevent both
+-- cross-address and cross-chain replays.
 data ValueToSign = ValueToSign
-  { vtsChainId :: ChainId
+  { vtsMultisigAddress :: Address
   , vtsNonce :: Natural
   , vtsOrder :: Order
   } deriving stock Generic

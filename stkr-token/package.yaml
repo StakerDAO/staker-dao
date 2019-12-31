@@ -38,6 +38,7 @@ library:
     - singletons
     - fmt
     - microlens
+    - time
     - yaml
     - vinyl
 
@@ -94,8 +95,10 @@ tests:
       - stkr-token
       - morley
       - morley-prelude
+      - lorentz-contracts
       - microlens
       - QuickCheck
       - tasty
       - tasty-hspec
+      - time
       - vinyl

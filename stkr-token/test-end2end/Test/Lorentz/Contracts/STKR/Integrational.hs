@@ -149,14 +149,14 @@ networkTestSpec TestOptions{..} = do
 
   it "passes happy case for newProposal" . tzTest $ do
     waitForStage 0
-    callViaMultisig #cNewProposal (STKR.EnsureOwner newProposal) vmo
+    callViaMultisig (STKR.NewProposal newProposal) vmo
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} -> do
       let proposalAndHash =
             ( #proposal newProposal, #proposalHash $
               STKR.Blake2BHash $ blake2b $ lPackValue newProposal )
       proposals `shouldBe` [proposalAndHash]
 
-    callViaMultisig #cNewCouncil (STKR.EnsureOwner newCouncilKeys) vmo
+    callViaMultisig (STKR.NewCouncil newCouncilKeys) vmo
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} ->
       councilKeys `shouldBe` newCouncilKeys
 

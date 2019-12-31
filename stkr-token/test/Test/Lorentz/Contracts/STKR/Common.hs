@@ -8,11 +8,13 @@ module Test.Lorentz.Contracts.STKR.Common
 
   , callWithMultisig
   , callSetSuccessor
+  , callWithdraw
 
   , failWhenNot
   , expectSuccess
 
   , newKeypair
+  , mkTeamKeys
   , wallet1
   , wallet2
   ) where
@@ -125,8 +127,34 @@ callSetSuccessor msig nonce teamSecretKeys stkr lambda = do
       , signatures = multisignValue teamSecretKeys toSign
       }
 
+callWithdraw
+  :: ContractRef Multisig.Parameter
+  -> Natural
+  -> [SecretKey]
+  -> ContractRef STKR.Parameter
+  -> STKR.WithdrawParams
+  -> IntegrationalScenarioM ()
+callWithdraw msig nonce teamSecretKeys stkr param = do
+  let order = mkCallOrderWrap (Ref stkr) #cWithdraw $ STKR.EnsureOwner param
+  let toSign = Multisig.ValueToSign
+        { vtsMultisigAddress = fromContractAddr msig
+        , vtsNonce = nonce
+        , vtsOrder = order
+        }
+
+  lCall msig $
+    Multisig.Parameter
+      { order = order
+      , nonce = nonce
+      , signatures = multisignValue teamSecretKeys toSign
+      }
+
 newKeypair :: ByteString -> (SecretKey, PublicKey)
 newKeypair bs = let sk = detSecretKey bs in (sk, toPublic sk)
+
+mkTeamKeys :: [(SecretKey, PublicKey)]
+mkTeamKeys = newKeypair <$> ["1", "2", "3", "4", "5"]
+
 
 wallet1, wallet2 :: Address
 wallet1 = genesisAddress1

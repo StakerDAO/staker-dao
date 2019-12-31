@@ -11,6 +11,7 @@ module Lorentz.Contracts.STKR.Parameter
 
 import Lorentz
 
+import Lorentz.Contracts.STKR.Funding.TypeDefs (WithdrawParams)
 import Lorentz.Contracts.STKR.Token.TypeDefs (TransferParams, GetBalanceParams)
 import Lorentz.Contracts.STKR.Governance.TypeDefs (Proposal, VoteForProposalParams)
 import Lorentz.Contracts.STKR.Misc.TypeDefs (EnsureOwner(..))
@@ -27,14 +28,16 @@ data PublicEntrypointParam
   = VoteForProposal VoteForProposalParams
   | GetBalance (View GetBalanceParams Natural)
   | GetTotalSupply (View () Natural)
+  | Fund ByteString
   deriving stock Generic
   deriving anyclass IsoValue
 
 data Parameter
   = PublicEntrypoint PublicEntrypointParam
   | OpsTeamEntrypoint (EnsureOwner OpsTeamEntrypointParam)
+  -- The following two methods may be called on frozen contract, so they're put separate
+  | Withdraw (EnsureOwner WithdrawParams)
   | SetSuccessor (EnsureOwner ("successor" :! (Lambda PublicEntrypointParam Operation)))
-  -- ^ The only method which can be called on frozen contract, so it is separate
   deriving stock Generic
   deriving anyclass IsoValue
 

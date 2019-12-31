@@ -40,6 +40,16 @@ spec_FreezeEntrypoint = do
 
   -- TODO: looks like property test, but don't want to mess with it for now
   describe "all Public and OpsTeam entrypoint fails when contract is frozen" $ do
+    it "fund entrypoint fails if contract is frozen" . integrationalTestExpectation $ do
+      (msig, stkr) <- originateWithEmptyLedger teamPks []
+      callWithMultisig msig 1 teamSks stkr $ STKR.Freeze ()
+
+      lTransfer (#from .! genesisAddress) (#to .! stkr) (toMutez 100) $
+        STKR.PublicEntrypoint $ STKR.Fund "dummybytestring"
+
+      validate . Left $
+        lExpectCustomError #contractFrozen ()
+
     it "newProposal call fails if contract is frozen" . integrationalTestExpectation $ do
       (msig, stkr) <- originate $ OriginateParams
         { opTeamKeys = teamPks

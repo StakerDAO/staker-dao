@@ -21,14 +21,20 @@ module Test.Lorentz.Contracts.STKR.Common
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+import qualified Data.ByteString as BS
 import Data.Vinyl.Derived (Label)
 import Lens.Micro.Internal (At(..), Index, IxValue, Ixed(..))
 import Lorentz.Contracts.Client (multisignValue)
-import Lorentz.Contracts.Multisig (OrderDest(..), mkCallOrderWrap, TransferOrderWrapC)
+import Lorentz.Contracts.Multisig
+  (OrderDest(..), TransferOrderWrapC, mkCallOrderWrap)
 import Lorentz.Test
 import Lorentz.Value
 import Michelson.Test.Dummy (dummyNow)
+import Named (Name(..), NamedF)
+import Test.QuickCheck (Arbitrary(..), arbitrarySizedNatural)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary, genericArbitrary)
 import Tezos.Crypto (PublicKey, SecretKey, detSecretKey, hashKey, toPublic)
+import Util.Named ((.!))
 
 import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR
@@ -147,3 +153,20 @@ expectSuccess body _ _ _ = body
 
 failWhenNot :: Bool -> Text -> Either ValidationError ()
 failWhenNot cond message = when (not cond) (Left . CustomValidationError $ message)
+
+instance Arbitrary Natural where
+  arbitrary = arbitrarySizedNatural
+
+instance Arbitrary ByteString where
+  arbitrary = BS.pack <$> arbitrary
+
+instance Arbitrary a => Arbitrary (NamedF Identity a name) where
+  arbitrary = (Name @name .!) <$> arbitrary @a
+
+instance Arbitrary STKR.OpsTeamEntrypointParam where
+  arbitrary = genericArbitrary
+
+instance ToADTArbitrary STKR.OpsTeamEntrypointParam
+
+deriving newtype instance Arbitrary STKR.Sha256Hash
+deriving stock instance Show STKR.OpsTeamEntrypointParam

@@ -22,7 +22,7 @@ requires WSL to be installed.
 
 
 ## Install WSL
-  
+
 1. Go to "Control panel"/"Programs and Features"/"Turn Windows features on or off" and check
 "Windows Subsystem for Linux" box if it's not checked yet. Follow the prompts Windows tells you.
 

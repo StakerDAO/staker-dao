@@ -11,12 +11,25 @@ import Lorentz hiding ((>>))
 import Lorentz.Test
 import Test.Hspec (Spec, it)
 import Tezos.Address (parseAddress)
+import Tezos.Crypto (SecretKey)
 import Util.Named ((.!))
 
+import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR
 
 import Test.Lorentz.Contracts.STKR.Common
-  (callWithdraw, mkTeamKeys, originateWithEmptyLedger)
+  (callWithMultisig', mkTeamKeys, originateWithEmptyLedger)
+
+callWithdraw
+  :: ContractRef Multisig.Parameter
+  -> Natural
+  -> [SecretKey]
+  -> ContractRef STKR.Parameter
+  -> STKR.WithdrawParams
+  -> IntegrationalScenarioM ()
+callWithdraw msig nonce teamSecretKeys stkr param = do
+  callWithMultisig' msig #cPermitOnFrozen nonce teamSecretKeys stkr $
+    STKR.Withdraw param
 
 receiver :: Address
 receiver = either (error "unexpected: could not parse tz1 address") id $
@@ -57,5 +70,6 @@ spec_Withdraw = do
     lTransfer (#from .! genesisAddress) (#to .! stkr) (toMutez 100) $
         STKR.PublicEntrypoint $ STKR.Fund "dummybytestring"
 
-    lCall stkr $ STKR.Withdraw $ STKR.EnsureOwner (#to .! receiver, #amount .! toMutez 50)
+    let withdraw = STKR.PermitOnFrozen . STKR.EnsureOwner . STKR.Withdraw
+    lCall stkr $ withdraw (#to .! receiver, #amount .! toMutez 50)
     validate . Left $ lExpectCustomError #senderCheckFailed (fromContractAddr msig)

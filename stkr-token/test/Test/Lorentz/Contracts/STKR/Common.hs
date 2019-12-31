@@ -7,8 +7,7 @@ module Test.Lorentz.Contracts.STKR.Common
   , originateWithEmptyLedger
 
   , callWithMultisig
-  , callSetSuccessor
-  , callWithdraw
+  , callWithMultisig'
 
   , failWhenNot
   , expectSuccess
@@ -22,15 +21,14 @@ module Test.Lorentz.Contracts.STKR.Common
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+import Data.Vinyl.Derived (Label)
 import Lens.Micro.Internal (At(..), Index, IxValue, Ixed(..))
-import Lorentz (Lambda)
 import Lorentz.Contracts.Client (multisignValue)
-import Lorentz.Contracts.Multisig (OrderDest(..), mkCallOrderWrap)
+import Lorentz.Contracts.Multisig (OrderDest(..), mkCallOrderWrap, TransferOrderWrapC)
 import Lorentz.Test
 import Lorentz.Value
 import Michelson.Test.Dummy (dummyNow)
 import Tezos.Crypto (PublicKey, SecretKey, detSecretKey, hashKey, toPublic)
-import Util.Named ((.!))
 
 import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR
@@ -82,6 +80,34 @@ originateWithEmptyLedger teamKeys councilKeys = originate $
     }
 
 -- | An utility function that creates a call order, signs it and
+-- calls Multisig with the correct parameter. An extended version
+-- that also accepts the wrapper label (i.e. #cOpsTeamEntrypoint,
+-- #cPermitOnFrozen).
+callWithMultisig'
+  :: forall wrapper param. TransferOrderWrapC STKR.Parameter wrapper (STKR.EnsureOwner param)
+  => ContractRef Multisig.Parameter
+  -> Label wrapper
+  -> Natural
+  -> [SecretKey]
+  -> ContractRef STKR.Parameter
+  -> param
+  -> IntegrationalScenarioM ()
+callWithMultisig' msig paramWrapper nonce teamSecretKeys stkr param = do
+  let order = mkCallOrderWrap (Ref stkr) paramWrapper $ STKR.EnsureOwner param
+  let toSign = Multisig.ValueToSign
+        { vtsMultisigAddress = fromContractAddr msig
+        , vtsNonce = nonce
+        , vtsOrder = order
+        }
+
+  lCall msig $
+    Multisig.Parameter
+      { order = order
+      , nonce = nonce
+      , signatures = multisignValue teamSecretKeys toSign
+      }
+
+-- | An utility function that creates a call order, signs it and
 -- calls Multisig with the correct parameter.
 callWithMultisig
   :: ContractRef Multisig.Parameter
@@ -90,71 +116,13 @@ callWithMultisig
   -> ContractRef STKR.Parameter
   -> STKR.OpsTeamEntrypointParam
   -> IntegrationalScenarioM ()
-callWithMultisig msig nonce teamSecretKeys stkr param = do
-  let order = mkCallOrderWrap (Ref stkr) #cOpsTeamEntrypoint $ STKR.EnsureOwner param
-  let toSign = Multisig.ValueToSign
-        { vtsMultisigAddress = fromContractAddr msig
-        , vtsNonce = nonce
-        , vtsOrder = order
-        }
-
-  lCall msig $
-    Multisig.Parameter
-      { order = order
-      , nonce = nonce
-      , signatures = multisignValue teamSecretKeys toSign
-      }
-
-callSetSuccessor
-  :: ContractRef Multisig.Parameter
-  -> Natural
-  -> [SecretKey]
-  -> ContractRef STKR.Parameter
-  -> Lambda STKR.PublicEntrypointParam Operation
-  -> IntegrationalScenarioM ()
-callSetSuccessor msig nonce teamSecretKeys stkr lambda = do
-  let order = mkCallOrderWrap (Ref stkr) #cSetSuccessor $ STKR.EnsureOwner (#successor .! lambda)
-  let toSign = Multisig.ValueToSign
-        { vtsMultisigAddress = fromContractAddr msig
-        , vtsNonce = nonce
-        , vtsOrder = order
-        }
-
-  lCall msig $
-    Multisig.Parameter
-      { order = order
-      , nonce = nonce
-      , signatures = multisignValue teamSecretKeys toSign
-      }
-
-callWithdraw
-  :: ContractRef Multisig.Parameter
-  -> Natural
-  -> [SecretKey]
-  -> ContractRef STKR.Parameter
-  -> STKR.WithdrawParams
-  -> IntegrationalScenarioM ()
-callWithdraw msig nonce teamSecretKeys stkr param = do
-  let order = mkCallOrderWrap (Ref stkr) #cWithdraw $ STKR.EnsureOwner param
-  let toSign = Multisig.ValueToSign
-        { vtsMultisigAddress = fromContractAddr msig
-        , vtsNonce = nonce
-        , vtsOrder = order
-        }
-
-  lCall msig $
-    Multisig.Parameter
-      { order = order
-      , nonce = nonce
-      , signatures = multisignValue teamSecretKeys toSign
-      }
+callWithMultisig msig = callWithMultisig' msig #cOpsTeamEntrypoint
 
 newKeypair :: ByteString -> (SecretKey, PublicKey)
 newKeypair bs = let sk = detSecretKey bs in (sk, toPublic sk)
 
 mkTeamKeys :: [(SecretKey, PublicKey)]
 mkTeamKeys = newKeypair <$> ["1", "2", "3", "4", "5"]
-
 
 wallet1, wallet2 :: Address
 wallet1 = genesisAddress1

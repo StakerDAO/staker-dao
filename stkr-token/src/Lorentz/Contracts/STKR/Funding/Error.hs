@@ -10,6 +10,6 @@ type instance ErrorArg "invalidReceiver" = Address
 instance (CustomErrorHasDoc "invalidReceiver") where
   customErrClass = ErrClassActionException
   customErrDocMdCause =
-    "Could con make (contract unit) out of the receiver address"
+    "Could not make (contract unit) out of the receiver address"
   customErrArgumentSemantics =
     Just "Receiver address"

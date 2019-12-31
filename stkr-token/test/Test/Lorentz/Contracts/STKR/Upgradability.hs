@@ -9,19 +9,31 @@ import Prelude hiding (drop)
 
 import qualified Data.Map as Map
 
-import Lorentz hiding ((>>))
+import Lorentz hiding ((>>), lambda)
 import Lorentz.Contracts.Consumer
 import Lorentz.Test
 import Test.Hspec (Spec, describe, it)
-import Tezos.Crypto (toPublic)
-import Util.Named ((.!))
 import Text.Hex (decodeHex)
+import Tezos.Crypto (SecretKey, toPublic)
+import Util.Named ((.!))
 
+import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR
 
 import Test.Lorentz.Contracts.STKR.Common
-  (OriginateParams(..), callSetSuccessor, callWithMultisig, failWhenNot,
+  (OriginateParams(..), callWithMultisig, callWithMultisig', failWhenNot,
   newKeypair, originate, originateWithEmptyLedger, wallet1, wallet2, expectSuccess)
+
+callSetSuccessor
+  :: ContractRef Multisig.Parameter
+  -> Natural
+  -> [SecretKey]
+  -> ContractRef STKR.Parameter
+  -> Lambda STKR.PublicEntrypointParam Operation
+  -> IntegrationalScenarioM ()
+callSetSuccessor msig nonce teamSecretKeys stkr lambda = do
+  callWithMultisig' msig #cPermitOnFrozen nonce teamSecretKeys stkr $
+    STKR.SetSuccessor (#successor .! lambda)
 
 spec_FreezeEntrypoint :: Spec
 spec_FreezeEntrypoint = do

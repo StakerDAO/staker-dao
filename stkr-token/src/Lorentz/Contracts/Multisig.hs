@@ -28,6 +28,10 @@ import Lorentz.Contracts.Multisig.Storage
 
 multisigContract :: Contract Parameter Storage
 multisigContract = do
+  amount; push (toMutez 0)
+  if IsEq
+  then nop
+  else failCustom_ #nonzeroAmountReceived
   unpair
   dup; dip updateNonceIfCorrect
   dupTop2; checkSignatures

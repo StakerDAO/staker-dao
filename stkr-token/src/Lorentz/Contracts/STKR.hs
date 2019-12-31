@@ -36,6 +36,12 @@ opsRouter timeConfig = caseT @OpsTeamEntrypointParam $
   , #cFreeze /-> freeze
   )
 
+frozenRouter :: [PermitOnFrozenParam, Storage] :-> ContractOut Storage
+frozenRouter = caseT @PermitOnFrozenParam $
+  ( #cWithdraw /-> withdraw
+  , #cSetSuccessor /-> setSuccessor
+  )
+
 entrypointRouter
   :: TimeConfig
   -> [Parameter, Storage] :-> ContractOut Storage
@@ -52,8 +58,7 @@ entrypointRouter timeConfig = do
     , #cOpsTeamEntrypoint /-> do
         duupX @2 @Storage; ensureNotFrozen
         withOwnerEnsured $ opsRouter timeConfig
-    , #cWithdraw /-> withOwnerEnsured withdraw
-    , #cSetSuccessor /-> withOwnerEnsured setSuccessor
+    , #cPermitOnFrozen /-> withOwnerEnsured frozenRouter
     )
 
 stkrContract :: TimeConfig -> Contract Parameter Storage

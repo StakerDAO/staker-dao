@@ -6,6 +6,7 @@ module Lorentz.Contracts.STKR.Parameter
   , VoteForProposalParams
   , EnsureOwner(..)
   , OpsTeamEntrypointParam(..)
+  , PermitOnFrozenParam(..)
   , PublicEntrypointParam(..)
   ) where
 
@@ -32,12 +33,16 @@ data PublicEntrypointParam
   deriving stock Generic
   deriving anyclass IsoValue
 
+data PermitOnFrozenParam
+  = Withdraw WithdrawParams
+  | SetSuccessor ("successor" :! (Lambda PublicEntrypointParam Operation))
+  deriving stock Generic
+  deriving anyclass IsoValue
+
 data Parameter
   = PublicEntrypoint PublicEntrypointParam
   | OpsTeamEntrypoint (EnsureOwner OpsTeamEntrypointParam)
-  -- The following two methods may be called on frozen contract, so they're put separate
-  | Withdraw (EnsureOwner WithdrawParams)
-  | SetSuccessor (EnsureOwner ("successor" :! (Lambda PublicEntrypointParam Operation)))
+  | PermitOnFrozen (EnsureOwner PermitOnFrozenParam)
   deriving stock Generic
   deriving anyclass IsoValue
 

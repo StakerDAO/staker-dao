@@ -30,32 +30,38 @@ module TzTest
 
 import Prelude
 
-import Data.Singletons (SingI)
-import Data.Text.Lazy (toStrict)
-import qualified Data.Text as T
-import Fmt (Buildable, pretty)
-import System.Process (proc, CreateProcess(..), StdStream(..), createProcess, waitForProcess)
-import System.Exit (ExitCode)
-import qualified Control.Exception as E
-import System.IO (hGetContents, hPutStr, hGetBuffering, hSetBuffering, BufferMode(..))
 import Control.Concurrent (forkIO, killThread)
-import System.Environment (getEnvironment)
+import qualified Control.Exception as E
 import Data.Aeson (FromJSON)
+import Data.Singletons (SingI)
+import qualified Data.Text as T
+import Data.Text.Lazy (toStrict)
 import qualified Data.Yaml as Yaml
+import Fmt (Buildable, pretty)
 import Lens.Micro (ix)
+import System.Environment (getEnvironment)
+import System.Exit (ExitCode)
+import System.IO
+  (BufferMode(..), hGetBuffering, hGetContents, hPutStr, hSetBuffering)
+import System.Process
+  (CreateProcess(..), StdStream(..), createProcess, proc, waitForProcess)
 
-import Lorentz (Contract, NicePrintedValue, NiceStorage, ParameterEntryPoints, parseLorentzValue)
+import qualified Crypto.Error as CE
+import qualified Crypto.PubKey.Ed25519 as Ed25519
+import Lorentz
+  (Contract, NicePrintedValue, NiceStorage, ParameterEntryPoints,
+  parseLorentzValue)
 import Lorentz.Print (printLorentzContract, printLorentzValue)
 import Michelson.Typed (IsoValue, ToT)
 import Tezos.Address (Address, formatAddress, parseAddress)
-import Tezos.Core (Mutez, ChainId, parseChainId, unsafeMkMutez, parseTimestamp, Timestamp)
-import Tezos.Crypto (PublicKey(..), KeyHash, Signature(..), parsePublicKey, parseKeyHash, SecretKey,
-  parseSecretKey, toPublic, sign, formatSecretKey, blake2b)
-import qualified Crypto.PubKey.Ed25519 as Ed25519
-import qualified Crypto.Error as CE
+import Tezos.Core
+  (ChainId, Mutez, Timestamp, parseChainId, parseTimestamp, unsafeMkMutez)
+import Tezos.Crypto
+  (KeyHash, PublicKey(..), SecretKey, Signature(..), blake2b, formatSecretKey,
+  parseKeyHash, parsePublicKey, parseSecretKey, sign, toPublic)
 
 import Data.Maybe (fromJust)
-import System.Console.Haskeline (runInputT, defaultSettings, getPassword)
+import System.Console.Haskeline (defaultSettings, getPassword, runInputT)
 
 import DecipherTzEncKey
 
@@ -75,13 +81,19 @@ type TzTest a = ReaderT Env IO a
 runTzTest :: TzTest a -> Env -> IO a
 runTzTest = runReaderT
 
-exec :: [Text] -> TzTest Text
-exec args = execWithShell args id
+exec :: Bool -> [Text] -> TzTest Text
+exec forwardToStdout args =
+  execWithShell forwardToStdout args id
 
 -- For this to work well, you SHALL link with `threaded` RTS!!!
 -- Stdin, and stderr are inherited!
-callProcessWithReadStdout :: FilePath -> [String] -> Maybe [(String, String)] -> IO (ExitCode, String)
-callProcessWithReadStdout cmd args penv = do
+callProcessWithReadStdout
+  :: Bool
+  -> FilePath
+  -> [String]
+  -> Maybe [(String, String)]
+  -> IO (ExitCode, String)
+callProcessWithReadStdout forwardToStdout cmd args penv = do
   bufMode <- hGetBuffering stdout
   hSetBuffering stdout NoBuffering
   (_, Just hout, _, p) <- createProcess $ (proc cmd args) {env = penv, std_out = CreatePipe, delegate_ctlc = True}
@@ -93,7 +105,9 @@ callProcessWithReadStdout cmd args penv = do
         case ec of
           Right c -> do
             modifyIORef outref (. (++ c))
-            System.IO.hPutStr stdout c
+            if forwardToStdout
+            then System.IO.hPutStr stdout c
+            else pass
             getout
           _ -> putMVar fin ()
   t <- forkIO getout
@@ -104,8 +118,12 @@ callProcessWithReadStdout cmd args penv = do
   ds <- readIORef outref
   pure (ec, ds [])
 
-execWithShell :: [Text] -> (IO String -> IO String) -> TzTest Text
-execWithShell args shellTransform = do
+execWithShell
+  :: Bool
+  -> [Text]
+  -> (IO String -> IO String)
+  -> TzTest Text
+execWithShell forwardToStdout args shellTransform = do
   Env{..} <- ask
   let outputShell = do
         let allargs =
@@ -115,7 +133,12 @@ execWithShell args shellTransform = do
         -- putTextLn $ "EXEC!: " <> envTezosClientCmd <> " " <> T.intercalate " " allargs
         e <- getEnvironment
         -- Ignore exit code ATM
-        (_r, o) <- callProcessWithReadStdout (T.unpack envTezosClientCmd) (map T.unpack allargs) (Just $ modenv e)
+        (_r, o) <-
+          callProcessWithReadStdout
+            forwardToStdout
+            (T.unpack envTezosClientCmd)
+            (map T.unpack allargs)
+            (Just $ modenv e)
         -- putStr $ "RECV!: " ++ o
         return o
   liftIO $ T.pack <$> shellTransform outputShell
@@ -134,7 +157,7 @@ transfer
   :: NicePrintedValue a
   => TransferP a -> TzTest ()
 transfer TransferP{..} = do
-  exec $
+  exec False $
     [ "transfer", pretty tpQty
     , "from", formatAddress tpSrc
     , "to", formatAddress tpDst
@@ -186,7 +209,7 @@ originateContract OriginateContractP{..} = do
         , "--burn-cap", show ocpBurnCap
         ]
   addrString <- fromMaybe "" . safeHead . words . T.strip .
-                lineWithPrefix "New contract " <$> exec cmdArgs
+                lineWithPrefix "New contract " <$> exec False cmdArgs
   -- Ex: New contract KT1MNzB6r9eFiYtFbhnRUgnuC83vwSUqERWG originated.
   either (fail . pretty) pure $ parseAddress addrString
 
@@ -221,7 +244,7 @@ mySignPK skBytes bytes = (PublicKey pk, Signature . Ed25519.sign sk pk . blake2b
 generateSigPK
   :: Text -> ByteString -> TzTest (PublicKey, Signature)
 generateSigPK alias bytes = do
-  tzsk <- T.strip . lineWithPrefix "Secret Key: " <$> exec ["show","address", alias, "-S"]
+  tzsk <- T.strip . lineWithPrefix "Secret Key: " <$> exec False ["show","address", alias, "-S"]
   if "encrypted:" `T.isPrefixOf` tzsk
     then
       let attempt n = do
@@ -265,7 +288,7 @@ resolve rt alias = do
           ContractAlias -> (["show","known","contract"], "")
           AddressAlias -> (["show","address"], "Hash: ")
           _ -> error "resolve: impossible condition"
-  key <- T.strip . lineWithPrefix prefix <$> exec (params <> [alias])
+  key <- T.strip . lineWithPrefix prefix <$> exec False (params <> [alias])
   let errLabel = "Failed to resolve alias " <> toString alias
   case rt of
     PublicKeyAlias -> handleErr errLabel $ parsePublicKey key
@@ -280,15 +303,15 @@ handleErr s = either (fail . ((s <> ": ") <>) . pretty) pure
 generateKey
   :: Text -> TzTest PublicKey
 generateKey alias = do
-  _ <- exec [ "gen", "keys", alias ]
+  _ <- exec False [ "gen", "keys", alias ]
   let errLabel = "Error generating key " <> toString alias
-  pk <- T.strip . lineWithPrefix "Public Key: " <$> exec [ "show", "address", alias ]
+  pk <- T.strip . lineWithPrefix "Public Key: " <$> exec False [ "show", "address", alias ]
   handleErr errLabel $ parsePublicKey pk
 
 importSecretKey :: Text -> SecretKey -> TzTest Address
 importSecretKey alias sk = do
   let skUri = "unencrypted:" <> formatSecretKey sk
-  output <- exec $ ["import", "secret", "key", alias, skUri, "--force"]
+  output <- exec False $ ["import", "secret", "key", alias, skUri, "--force"]
   let addrStr = words output ^. ix 3
   either (fail . pretty) pure (parseAddress addrStr)
 
@@ -300,7 +323,7 @@ getStorage
   )
   => Address -> TzTest st
 getStorage addr = do
-  output <- exec $
+  output <- exec False $
     ["get", "contract", "storage", "for", formatAddress addr]
   either (fail . pretty) pure $
     parseLorentzValue @st output
@@ -309,7 +332,7 @@ stripQuotes = T.dropAround (== '"') . T.strip
 
 getChainId :: Text -> TzTest ChainId
 getChainId name = do
-  output <- exec $
+  output <- exec False $
     ["rpc", "get", "/chains/" <> name <> "/chain_id"]
 
   either (fail . pretty) pure
@@ -320,6 +343,6 @@ getMainChainId = getChainId "main"
 
 getHeadTimestamp :: TzTest Timestamp
 getHeadTimestamp = do
-  output <- exec $ ["get", "timestamp"]
+  output <- exec False $ ["get", "timestamp"]
   maybe (fail "Failed to parse timestamp") pure $
     parseTimestamp . T.strip $ output

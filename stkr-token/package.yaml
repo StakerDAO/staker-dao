@@ -48,7 +48,7 @@ library:
     - sodium
 
 executables:
-  stkr-token-exe:
+  stkr-token-cli:
     <<: *exec-common
 
     dependencies:

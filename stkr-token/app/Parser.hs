@@ -19,8 +19,8 @@ module Parser
 
 import Prelude
 
-import Data.Word (Word64) -- FIXME!!! Mutez has noe Read intsance, fix Morley!!!
-import Options.Applicative (command, helper, info, progDesc)
+import Data.Word (Word64)
+import Options.Applicative (command, helper, info, progDesc, optional)
 import qualified Options.Applicative as Opt
 
 import Tezos.Address (Address)
@@ -101,7 +101,7 @@ data VoteForProposalOptions = VoteForProposalOptions
 data ViaMultisigOptions = ViaMultisigOptions
   { vmoMsig :: OrAlias Address
   , vmoStkr :: OrAlias Address
-  , vmoFrom :: OrAlias Address
+  , vmoFrom :: Maybe (OrAlias Address)
   , vmoMsigSignatures :: [OrAlias (PublicKey, Signature)]
   , vmoNonce :: Maybe Natural
   }
@@ -109,6 +109,7 @@ data ViaMultisigOptions = ViaMultisigOptions
 data NewProposalOptions = NewProposalOptions
   { npViaMultisig :: ViaMultisigOptions
   , npProposalFile :: FilePath
+  , npPrintSigs :: Bool
   }
 
 data DeployOptions = DeployOptions
@@ -189,12 +190,13 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
         (NewProposalOptions
           <$> viaMultisigOptions
           <*> proposalOption
+          <*> printSigsOnlyOption
         )
 
     viaMultisigOptions = ViaMultisigOptions
       <$> addrOrAliasOption "msig"
       <*> addrOrAliasOption "stkr"
-      <*> addrOrAliasOption "from"
+      <*> optional (addrOrAliasOption "from")
       <*> many (pkSigOption "msig")
       <*> nonceOption
 

@@ -38,11 +38,11 @@ import Lorentz.Contracts.STKR.Misc
 
 import Test.Lorentz.Contracts.STKR.Common (newKeypair)
 
-newUrls :: [Int] -> Map MText (ByteString, MText)
+newUrls :: [Int] -> Map MText (Sha256Hash, MText)
 newUrls = M.fromList . Prelude.map mkUrl
   where
     mkUrl i = ( [L.mt|resource#{i}|]
-              , ( "hash" <> show i
+              , ( Sha256Hash $ "hash" <> show i
                 , [L.mt|https://example.com/resource#{i}|]
                 ) )
 
@@ -205,7 +205,7 @@ spec_calcWinner = do
         (testCouncilKeys !! kndx, #proposalId pid) )
     mkPrNHash
       :: Text
-      -> Map MText (ByteString, MText)
+      -> Map MText (Sha256Hash, MText)
       -> ByteString
       -> ProposalAndHash
     mkPrNHash descr urls hash =

@@ -27,6 +27,7 @@ module Options
 
   , valueOption
   , amountOption
+  , printSigsOnlyOption
   ) where
 
 import Prelude
@@ -222,3 +223,8 @@ amountOption = Opt.option Opt.auto $
   Opt.long "amount" <> Opt.short 'a'
     <> Opt.help "Amount to withdraw"
     <> Opt.metavar "INT"
+
+printSigsOnlyOption :: Opt.Parser Bool
+printSigsOnlyOption = Opt.switch $
+  Opt.long "print-sigs"
+    <> Opt.help "Print signatures only, do not submit proposal to network"

@@ -74,8 +74,8 @@ spec_NetworkTest = do
     , ..
     }
 
-tezosWpUrlHash :: (STKR.Hash, STKR.URL)
-tezosWpUrlHash = (hash_, url)
+tezosWpUrlHash :: (STKR.Sha256Hash, STKR.URL)
+tezosWpUrlHash = (STKR.Sha256Hash hash_, url)
   where
     url = mkMTextUnsafe "https://tezos.com/static/white_paper-2dc8c02267a8fb86bd67a108199441bf.pdf"
     hash_ = fromMaybe (error "tezosWpUrlHash: unexpected") . decodeHex $
@@ -140,8 +140,7 @@ networkTestSpec TestOptions{..} = do
 
   let vmo =
         ViaMultisigOptions
-          { vmoFrom = faucet
-          , vmoMsig = msigAddr
+          { vmoMsig = msigAddr
           , vmoStkr = stkrAddr
           , vmoSign = pure . multisignBytes teamSks
           , vmoNonce = Nothing
@@ -149,14 +148,14 @@ networkTestSpec TestOptions{..} = do
 
   it "passes happy case for newProposal" . tzTest $ do
     waitForStage 0
-    callViaMultisig (STKR.NewProposal newProposal) vmo
+    callViaMultisig faucet (STKR.NewProposal newProposal) vmo
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} -> do
       let proposalAndHash =
             ( #proposal newProposal, #proposalHash $
               STKR.Blake2BHash $ blake2b $ lPackValue newProposal )
       proposals `shouldBe` [proposalAndHash]
 
-    callViaMultisig (STKR.NewCouncil newCouncilKeys) vmo
+    callViaMultisig faucet (STKR.NewCouncil newCouncilKeys) vmo
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} ->
       councilKeys `shouldBe` newCouncilKeys
 

@@ -11,8 +11,8 @@ import Fmt (pretty, (+|), (|+))
 import qualified Lorentz as L
 import qualified Options.Applicative as Opt
 import qualified Data.Yaml as Yaml
-import Tezos.Crypto (hashKey, parsePublicKey)
 import Tezos.Core (unsafeMkMutez)
+import Tezos.Crypto (hashKey, parsePublicKey, formatPublicKey, formatSignature)
 import Util.IO (readFileUtf8, writeFileUtf8)
 import Util.Named ((.!))
 
@@ -51,16 +51,16 @@ localCmdRunner = \case
       maybe putStrLn writeFileUtf8 out $
       L.printLorentzContract False (STKR.stkrContract tc)
 
-withMultisigOptions ::
-  (Client.ViaMultisigOptions -> TzTest ())
+callViaMultisig' ::
+  (L.Address -> Client.ViaMultisigOptions -> TzTest ())
    -> ViaMultisigOptions -> TzTest ()
-withMultisigOptions f ViaMultisigOptions {..} = do
-  fromAddr <- Tz.resolve' Tz.AddressAlias vmoFrom
+callViaMultisig' f ViaMultisigOptions {..} = do
+  fromAddr <- maybe (fail "From address not specified")
+                    (Tz.resolve' Tz.AddressAlias) vmoFrom
   msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
   stkrAddr <- Tz.resolve' Tz.ContractAlias vmoStkr
-  f $ Client.ViaMultisigOptions
-    { vmoFrom = fromAddr
-    , vmoMsig = msigAddr
+  f fromAddr $ Client.ViaMultisigOptions
+    { vmoMsig = msigAddr
     , vmoStkr = stkrAddr
     , vmoSign =
         \bytes ->
@@ -70,7 +70,7 @@ withMultisigOptions f ViaMultisigOptions {..} = do
 
 callViaMultisig
   :: STKR.OpsTeamEntrypointParam -> ViaMultisigOptions -> TzTest ()
-callViaMultisig p = withMultisigOptions (Client.callViaMultisig p)
+callViaMultisig p = callViaMultisig' (flip Client.callViaMultisig p)
 
 remoteCmdRunner :: RemoteCommand -> TzTest ()
 remoteCmdRunner = \case
@@ -93,10 +93,26 @@ remoteCmdRunner = \case
         }
     putTextLn $ "Deploy result: " +| addrs |+ ""
   NewProposal NewProposalOptions {..} -> do
-    mbProposal <- liftIO $ STKR.proposalText2Proposal <$> Yaml.decodeFileThrow @IO @_ npProposalFile
-    case mbProposal of
-      Left err -> fail $ toString err
-      Right prop -> callViaMultisig (STKR.NewProposal prop) npViaMultisig
+    prop <- liftIO $ STKR.fromJProposal <$> Yaml.decodeFileThrow npProposalFile
+    if npPrintSigs
+      then do
+        msigAddr <- Tz.resolve' Tz.ContractAlias (vmoMsig npViaMultisig)
+        stkrAddr <- Tz.resolve' Tz.ContractAlias (vmoStkr npViaMultisig)
+        (_, pkSigs) <-
+          Client.signViaMultisig (STKR.NewProposal prop) $
+            Client.ViaMultisigOptions
+              { vmoMsig = msigAddr
+              , vmoStkr = stkrAddr
+              , vmoSign =
+                  \bytes ->
+                  mapM (Tz.resolve' (Tz.PkSigAlias bytes))
+                      (vmoMsigSignatures npViaMultisig)
+              , vmoNonce = vmoNonce npViaMultisig
+              }
+        forM_ pkSigs $ \(pk, sig) ->
+          putTextLn $ formatPublicKey pk <> ":" <> formatSignature sig
+      else
+        callViaMultisig (STKR.NewProposal prop) npViaMultisig
   NewCouncil NewCouncilOptions {..} -> do
     let genCouncil (prefix, n) =
           mapM (\i -> fmap hashKey . Tz.generateKey $ prefix <> "_key_" <> show i) [1..n]
@@ -130,8 +146,8 @@ remoteCmdRunner = \case
   Freeze msigOptions -> callViaMultisig (STKR.Freeze ()) msigOptions
   SetSuccessor SetSuccessorOptions {..} -> do
     ssSuccAddr <- Tz.resolve' Tz.ContractAlias ssSucc
-    withMultisigOptions (Client.setSuccessor ssSuccAddr) ssViaMultisig
+    callViaMultisig' (flip Client.setSuccessor ssSuccAddr) ssViaMultisig
   Withdraw WithdrawOptions {..} -> do
     wFromAddr <- Tz.resolve' Tz.AddressAlias wFrom
     -- FIXME??? We use `unsafeMkMutez` which throws instead of manual handling of `Nothing`
-    withMultisigOptions (Client.withdraw wFromAddr $ unsafeMkMutez wAmount) wViaMultisig
+    callViaMultisig' (\feePayer -> Client.withdraw feePayer wFromAddr $ unsafeMkMutez wAmount) wViaMultisig

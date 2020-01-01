@@ -160,6 +160,25 @@ a special purpose key for paying fees and fund it with
 Tz equivalent of 10$ (so that if `payer` key gets stolen,
 losses will be neglible).
 
+Use following commands to print and copy addresses of `msig`
+and `stkr` contracts:
+
+```
+> tezos-client ${env} show known contract stkr
+KT1MLPFT5t59FJNMiVkftpPCNb35h45Jg2AH
+
+> tezos-client ${env} show known contract msig
+KT1P8Lb8MZA93Wd2nfJzZjRNM5LjB4q6KA2N
+```
+
+On a different laptop you will be able to execute following
+commands to remember these addresses under same aliases:
+
+```
+./tezos-client ${env} remember contract stkr KT1MLPFT5t59FJNMiVkftpPCNb35h45Jg2AH
+./tezos-client ${env} remember contract msig KT1P8Lb8MZA93Wd2nfJzZjRNM5LjB4q6KA2N
+```
+
 ##### Testnet deployment
 
 For deploying a contract in testnet, use following command.
@@ -175,3 +194,52 @@ Current timestamp can be obtained on Linux/MacOS with `date +%s`.
 stkr-token-cli deploy ${env} --msigAlias msig1 --stkrAlias stkr1 --fromAlias payer_tn --test --start ${start} --duration 600"
 ```
 
+### Submit a proposal
+
+As a first step, a proposal should be described as single YAML file.
+
+Example of proposal file format is provided below:
+
+```
+description:
+  My proposal (1)
+newPolicy:
+  urls:
+    url1:
+      - "be7663e0ef87d51ab149a60dfad4df5940d30395ba287d9907f8d66ce5061d96"
+      - "https://tezos.com/static/white_paper-2dc8c02267a8fb86bd67a108199441bf.pdf"
+```
+
+After that, each Operations team member should sign this proposal with his key.
+Note, that signature procedure has to started from scratch if some other
+administering operation occurred (and nonce of MSig contract changed).
+
+To sign a submit new proposal operation, an Operations team member with
+key alias `stkrOps1` should execute the following command:
+
+```
+stkr-token-cli new-proposal ${env} --stkrAlias stkr --msigAlias msig --msigKeyAlias stkrOps1 -p proposal.yaml --print-sigs
+```
+
+Which will emit output like:
+
+```
+edpkuC9nfKfZiojv2wGFm8Rnd8fVfCXHKeZeZsSTu7VhT2iM61CAjT:edsigtmiPTdbYfFHqADLCRanqY65SqUHYuGhZFb5Gr7iu9XQwGm79FtJnrdqkPQQpzGQa9VwjCYXmt2nytkrK8EULnFPMkRtBmm
+```
+
+This output should be collected from each Operations team
+member and then the following command shall be executed from
+a single laptop:
+
+```
+stkr-token-cli new-proposal ${env} --stkrAlias stkr --msigAlias msig -p proposal.yaml --fromAlias payer --msigSig <..sig1..> --msigSig <..sig2..>
+```
+
+Where instead of `<..sig1..>`, `<..sig2..>` outputs from Operations
+team members should be substituted.
+
+For example (for 2 keys of Operations team):
+
+```
+stkr-token-cli new-proposal ${env} --stkrAlias stkr --msigAlias msig -p proposal.yaml --fromAlias payer --msigSig edpkuC9nfKfZiojv2wGFm8Rnd8fVfCXHKeZeZsSTu7VhT2iM61CAjT:edsigtmiPTdbYfFHqADLCRanqY65SqUHYuGhZFb5Gr7iu9XQwGm79FtJnrdqkPQQpzGQa9VwjCYXmt2nytkrK8EULnFPMkRtBmm --msigSig edpkuv6YqCv8gukEpi7E6qCDNGLTBUJs4EbtnkZPtLAx59iU6cT3Mq:edsigu2LYjiunz6fvBbjV7omoKn9RA9KB4NSNJjU6ii1jkarWdiHaSuFsbgXAbzgzb6rAey5VRQp58knEvn4Sj5xJ3Hm94N4bDN
+```

@@ -9,7 +9,7 @@ import Lorentz
 import Fmt (Buildable(..), Builder, blockMapF, jsonListF, mapF', base64F, (+|), (|+))
 import Tezos.Crypto (formatKeyHash)
 
-import Lorentz.Contracts.STKR.Governance.TypeDefs (Proposal, ProposalAndHash, Hash, URL, Policy)
+import Lorentz.Contracts.STKR.Governance.TypeDefs (Proposal, ProposalAndHash, Sha256Hash (..), URL, Policy)
 import Lorentz.Contracts.STKR.Parameter (PublicEntrypointParam(..))
 
 data Storage = Storage
@@ -29,10 +29,10 @@ data Storage = Storage
   deriving stock Generic
   deriving anyclass IsoValue
 
-instance Buildable (Map MText (Hash, URL)) where
+instance Buildable (Map MText (Sha256Hash, URL)) where
   build urls =
     mapF' build (
-        \(hash, value) ->
+        \(Sha256Hash hash, value) ->
           "(" +| base64F hash |+ "," +| build value |+ ""
         ) urls
 

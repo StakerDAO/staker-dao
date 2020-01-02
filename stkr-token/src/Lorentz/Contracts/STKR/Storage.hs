@@ -10,6 +10,7 @@ import Fmt (Buildable(..), Builder, blockMapF, jsonListF, mapF', base64F, (+|), 
 import Tezos.Crypto (formatKeyHash)
 
 import Lorentz.Contracts.STKR.Governance.TypeDefs (Proposal, ProposalAndHash, Hash, URL, Policy)
+import Lorentz.Contracts.STKR.Parameter (PublicEntrypointParam(..))
 
 data Storage = Storage
   { owner :: Address
@@ -22,6 +23,8 @@ data Storage = Storage
   -- denotes current stage within an epoch
   , totalSupply :: Natural
   , ledger :: BigMap Address Natural
+  , frozen :: Bool
+  , successor :: Maybe (Lambda PublicEntrypointParam Operation)
   }
   deriving stock Generic
   deriving anyclass IsoValue

@@ -20,7 +20,7 @@ import qualified Options.Applicative as Opt
 import Tezos.Address (Address)
 import Tezos.Crypto (KeyHash, PublicKey, Signature)
 
-import Lorentz.Contracts.STKR (TimeConfig (..), Proposal)
+import Lorentz.Contracts.STKR (TimeConfig (..))
 
 import Options
 
@@ -67,7 +67,7 @@ data ViaMultisigOptions = ViaMultisigOptions
 
 data NewProposalOptions = NewProposalOptions
   { npViaMultisig :: ViaMultisigOptions
-  , npProposal :: Proposal
+  , npProposalFile :: FilePath
   }
 
 data DeployOptions = DeployOptions

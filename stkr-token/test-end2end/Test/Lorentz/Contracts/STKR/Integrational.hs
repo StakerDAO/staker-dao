@@ -13,7 +13,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
 import qualified Data.Yaml as Yaml
-import Fmt ((+|), (|+))
+import Fmt ((+|), (|+), pretty)
 import Lorentz (lPackValue)
 import Michelson.Text (mkMTextUnsafe)
 import Test.Hspec (Expectation, Spec, it, runIO, shouldBe)
@@ -129,13 +129,14 @@ networkTestSpec TestOptions{..} = do
   faucet <- runIO $ tzTest $ importTestAccount faucetName
 
   runIO $ putTextLn "Deploying contracts..."
-  ContractAddresses{..} <-
+  ca@ContractAddresses{..} <-
     runIO $ tzTest $ deploy $
     DeployOptions
       { originator = faucet
       , councilPks = []
       , ..
       }
+  runIO $ putTextLn $ "Deployed contracts: " <> pretty ca
 
   let vmo =
         ViaMultisigOptions
@@ -148,14 +149,14 @@ networkTestSpec TestOptions{..} = do
 
   it "passes happy case for newProposal" . tzTest $ do
     waitForStage 0
-    callViaMultisig #cNewProposal (STKR.EnsureOwner newProposal) vmo
+    callViaMultisig (STKR.NewProposal newProposal) vmo
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} -> do
       let proposalAndHash =
             ( #proposal newProposal, #proposalHash $
               STKR.Blake2BHash $ blake2b $ lPackValue newProposal )
       proposals `shouldBe` [proposalAndHash]
 
-    callViaMultisig #cNewCouncil (STKR.EnsureOwner newCouncilKeys) vmo
+    callViaMultisig (STKR.NewCouncil newCouncilKeys) vmo
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} ->
       councilKeys `shouldBe` newCouncilKeys
 

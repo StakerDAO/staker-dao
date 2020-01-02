@@ -85,14 +85,12 @@ signBytes sk bytes =
   (toPublic sk, sign sk bytes)
 
 callViaMultisig
-  :: Msig.TransferOrderWrapC STKR.Parameter cName it
-  => Msig.Label cName -> it -> ViaMultisigOptions -> TzTest ()
-callViaMultisig label stkrParam ViaMultisigOptions {..} = do
-  let order = Msig.mkCallOrderWrap @STKR.Parameter (Msig.Unsafe vmoStkr) label stkrParam
-  chainId <- Tz.getMainChainId
+  :: STKR.OpsTeamEntrypointParam -> ViaMultisigOptions -> TzTest ()
+callViaMultisig stkrParam ViaMultisigOptions {..} = do
+  let order = Msig.mkCallOrderWrap @STKR.Parameter (Msig.Unsafe vmoStkr) #cOpsTeamEntrypoint (STKR.EnsureOwner stkrParam)
   let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage vmoMsig
   nonce <- maybe getNonce pure vmoNonce
-  let toSign = Msig.ValueToSign chainId nonce order
+  let toSign = Msig.ValueToSign vmoMsig nonce order
   let bytes = lPackValue toSign
   pkSigs <- vmoSign bytes
   let param = Msig.Parameter order nonce pkSigs
@@ -123,5 +121,7 @@ voteForProposal VoteForProposalOptions {..} = do
   let curStage = vpEpoch*4 + 2
   let toSignB = lPackValue $ STKR.CouncilDataToSign proposalHash vpStkr curStage
   (pk, sig) <- vpSign toSignB
-  Tz.call vpFrom vpStkr $ STKR.VoteForProposal
-    (#proposalId vpProposalId, #votePk pk, #voteSig sig)
+  Tz.call vpFrom vpStkr
+    $ STKR.PublicEntrypoint
+    . STKR.VoteForProposal
+    $ (#proposalId vpProposalId, #votePk pk, #voteSig sig)

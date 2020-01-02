@@ -10,6 +10,9 @@
 dev:
 	nix-shell --run 'cd stkr-token && hpack && cabal build'
 
+end2end:
+	nix-shell --run 'cd stkr-token && hpack && cabal run stkr-token-test-end2end'
+
 # Run tests in all packages which have them.
 test:
 	nix-shell --run 'cd stkr-token && hpack && cabal test'
@@ -24,7 +27,7 @@ repl:
 	nix-shell --run 'cd stkr-token && hpack && cabal repl'
 
 shell:
-	nix-shell
+	nix-shell --command 'cd stkr-token && hpack; return'
 
 build:
 	nix-build

@@ -38,6 +38,7 @@ library:
     - singletons
     - fmt
     - microlens
+    - time
     - yaml
     - vinyl
 
@@ -88,12 +89,16 @@ tests:
       - base-noprelude >= 4.7 && < 5
       - containers
       - fmt
+      - HUnit
       - hspec
       - hspec-expectations
       - stkr-token
       - morley
       - morley-prelude
+      - lorentz-contracts
       - microlens
+      - QuickCheck
       - tasty
       - tasty-hspec
+      - time
       - vinyl

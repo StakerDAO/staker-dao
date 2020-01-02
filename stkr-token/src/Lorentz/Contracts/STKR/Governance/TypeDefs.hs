@@ -1,3 +1,5 @@
+{-# LANGUAGE NoRebindableSyntax #-}
+
 module Lorentz.Contracts.STKR.Governance.TypeDefs
   ( Hash
   , URL
@@ -5,6 +7,7 @@ module Lorentz.Contracts.STKR.Governance.TypeDefs
   , blake2B_
   , Policy
   , Proposal
+  , proposalText2Proposal
   , ProposalAndHash
   , VoteForProposalParams
   , CouncilDataToSign(..)
@@ -12,9 +15,13 @@ module Lorentz.Contracts.STKR.Governance.TypeDefs
   ) where
 
 import Util.Named ((:!))
-import Prelude (Show)
+import Prelude (Show, Traversable(..), (<$>), maybe)
+import Data.Map as M
+import Text.Hex (decodeHex)
+import Data.Aeson (FromJSON)
 
 import Lorentz
+import Michelson.Text (mkMText)
 
 type Hash = ByteString
 type URL = MText
@@ -33,6 +40,32 @@ type Proposal =
   ( "description" :! MText
   , "newPolicy" :! Policy
   )
+
+-- This is needed to define clean `FromJSON` instance,
+--   consider simplifying
+data ProposalText = ProposalText {
+    description :: Text
+  , newPolicy :: Map Text (Text, Text)
+  } deriving (Generic, FromJSON)
+
+proposalText2Proposal :: ProposalText -> Either Text Proposal
+proposalText2Proposal ProposalText{..} = do
+    decodedVals <- traverse decodeHU newPolicy
+    decoded <- M.fromList <$> (mapM decodeUrl $ M.toList decodedVals)
+    decodedDescription <- mkMText description
+    pure
+      ( #description $ decodedDescription
+      , #newPolicy $ #urls decoded)
+  where
+    decodeUrl (turl, v) = do
+      url <- mkMText turl
+      return (url, v)
+    decodeHU (thash, turl) = do
+      hash <- decodeHex' thash
+      url <- mkMText turl
+      return (hash, url)
+    decodeHex' txt = maybe (Left $ "Invalid hash: " <> txt) Right $ decodeHex txt
+
 
 type ProposalAndHash = ("proposal" :! Proposal, "proposalHash" :! Blake2BHash)
 
@@ -55,4 +88,4 @@ data TimeConfig =
     TestTC { _start :: Timestamp
            , _stageDuration :: Natural
            }
-  | ProdTC { _firstYear :: Natural }
+  | ProdTC { _startYear :: Natural }

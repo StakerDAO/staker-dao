@@ -35,7 +35,7 @@ newCouncilSpec = do
       let newCouncilKeys = S.fromList [hashKey pk6, hashKey pk7]
       (msig, stkr) <- originateWithEmptyLedger teamPks []
 
-      callWithMultisig msig 1 teamSks stkr #cNewCouncil $ STKR.EnsureOwner newCouncilKeys
+      callWithMultisig msig 1 teamSks stkr $ STKR.NewCouncil newCouncilKeys
 
       validate . Right . lExpectStorageUpdate stkr $ \storage ->
         if newCouncilKeys == (STKR.councilKeys storage)
@@ -51,6 +51,8 @@ newCouncilSpec = do
       (msig, stkr) <- originateWithEmptyLedger teamPks []
 
       lCall stkr $
-        STKR.NewCouncil . STKR.EnsureOwner $ newCouncilKeys
+        STKR.OpsTeamEntrypoint .
+        STKR.EnsureOwner .
+        STKR.NewCouncil $ newCouncilKeys
       validate . Left $
         lExpectCustomError #senderCheckFailed (fromContractAddr msig)

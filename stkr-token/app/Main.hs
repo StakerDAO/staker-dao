@@ -5,16 +5,15 @@ module Main
 import Prelude
 
 import qualified Data.Set as Set
-import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Fmt (pretty, (+|), (|+))
 import qualified Lorentz as L
 import qualified Options.Applicative as Opt
 import qualified Data.Yaml as Yaml
 import Tezos.Core (unsafeMkMutez)
-import Tezos.Crypto (hashKey, parsePublicKey, formatPublicKey, formatSignature)
-import Util.IO (readFileUtf8, writeFileUtf8)
+import Tezos.Crypto (hashKey, parseKeyHash, formatPublicKey, formatSignature)
 import Util.Named ((.!))
+import Util.IO (writeFileUtf8)
 
 import TzTest (TzTest)
 import qualified TzTest as Tz
@@ -51,6 +50,31 @@ localCmdRunner = \case
       maybe putStrLn writeFileUtf8 out $
       L.printLorentzContract False (STKR.stkrContract tc)
 
+signViaMultisig
+  :: STKR.OpsTeamEntrypointParam
+  -> ViaMultisigOptions
+  -> TzTest (Msig.Parameter, [(L.PublicKey, L.Signature)])
+signViaMultisig stkrParam ViaMultisigOptions {..} = do
+  msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
+  stkrAddr <- Tz.resolve' Tz.ContractAlias vmoStkr
+  Client.signViaMultisig stkrParam $ Client.ViaMultisigOptions
+    { vmoMsig = msigAddr
+    , vmoStkr = stkrAddr
+    , vmoSign =
+        \bytes ->
+        mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
+    , ..
+    }
+
+printPkSigs
+  :: STKR.OpsTeamEntrypointParam
+  -> ViaMultisigOptions
+  -> TzTest ()
+printPkSigs stkrParam vmo = do
+  (_, pkSigs) <- signViaMultisig stkrParam vmo
+  forM_ pkSigs $ \(pk, sig) ->
+    putTextLn $ formatPublicKey pk <> ":" <> formatSignature sig
+
 callViaMultisig' ::
   (L.Address -> Client.ViaMultisigOptions -> TzTest ())
    -> ViaMultisigOptions -> TzTest ()
@@ -75,15 +99,14 @@ callViaMultisig p = callViaMultisig' (flip Client.callViaMultisig p)
 remoteCmdRunner :: RemoteCommand -> TzTest ()
 remoteCmdRunner = \case
   Deploy DeployOptions{..} -> do
-    let readSkFromFile filename =
-          readFileUtf8 filename >>=
-          either (fail . pretty) pure . parsePublicKey . T.strip
+    let parsePkHash =
+          either (fail . pretty) pure . parseKeyHash
     let msigKeyName i = msigAlias <> "_key_" <> show (i :: Int)
     teamKeys <-
-      fmap (Set.fromList . fmap hashKey) $
-        if null teamPksFiles
-        then mapM (Tz.generateKey . msigKeyName) [1..3]
-        else liftIO $ traverse readSkFromFile teamPksFiles
+      fmap Set.fromList $
+        if null teamPkHashes
+        then mapM (fmap hashKey . Tz.generateKey . msigKeyName) [1..3]
+        else traverse parsePkHash teamPkHashes
     originator' <- Tz.resolve' Tz.AddressAlias originator
     addrs <- Client.deploy $
       Client.DeployOptions
@@ -95,29 +118,15 @@ remoteCmdRunner = \case
   NewProposal NewProposalOptions {..} -> do
     prop <- liftIO $ STKR.fromJProposal <$> Yaml.decodeFileThrow npProposalFile
     if npPrintSigs
-      then do
-        msigAddr <- Tz.resolve' Tz.ContractAlias (vmoMsig npViaMultisig)
-        stkrAddr <- Tz.resolve' Tz.ContractAlias (vmoStkr npViaMultisig)
-        (_, pkSigs) <-
-          Client.signViaMultisig (STKR.NewProposal prop) $
-            Client.ViaMultisigOptions
-              { vmoMsig = msigAddr
-              , vmoStkr = stkrAddr
-              , vmoSign =
-                  \bytes ->
-                  mapM (Tz.resolve' (Tz.PkSigAlias bytes))
-                      (vmoMsigSignatures npViaMultisig)
-              , vmoNonce = vmoNonce npViaMultisig
-              }
-        forM_ pkSigs $ \(pk, sig) ->
-          putTextLn $ formatPublicKey pk <> ":" <> formatSignature sig
-      else
-        callViaMultisig (STKR.NewProposal prop) npViaMultisig
+      then printPkSigs (STKR.NewProposal prop) npViaMultisig
+      else callViaMultisig (STKR.NewProposal prop) npViaMultisig
   NewCouncil NewCouncilOptions {..} -> do
     let genCouncil (prefix, n) =
           mapM (\i -> fmap hashKey . Tz.generateKey $ prefix <> "_key_" <> show i) [1..n]
     council <- either (fmap Set.fromList . genCouncil) pure ncCouncil
-    callViaMultisig (STKR.NewCouncil council) ncViaMultisig
+    if ncPrintSigs
+      then printPkSigs (STKR.NewCouncil council) ncViaMultisig
+      else callViaMultisig (STKR.NewCouncil council) ncViaMultisig
   VoteForProposal VoteForProposalOptions {..} -> do
     fromAddr <- Tz.resolve' Tz.AddressAlias vpFrom
     stkrAddr <- Tz.resolve' Tz.ContractAlias vpStkr

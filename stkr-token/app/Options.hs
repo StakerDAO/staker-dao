@@ -1,7 +1,7 @@
 module Options
   ( fileOutputOption
   , aliasOption
-  , fileArg
+  , pkHashOption
 
   , OrAlias (..)
   , addrOrAliasOption
@@ -71,10 +71,10 @@ addressOption name =
   Opt.option addressReader $
     mconcat [Opt.long name, Opt.metavar "ADDRESS"]
 
-fileArg :: Opt.Parser FilePath
-fileArg = Opt.strOption $ mconcat
-  [ Opt.metavar "PK FILE"
-  , Opt.long "team-pk"
+pkHashOption :: Opt.Parser Text
+pkHashOption = Opt.strOption $ mconcat
+  [ Opt.metavar "PK_HASH"
+  , Opt.long "team-pk-hash"
   ]
 
 addressReader :: Opt.ReadM Address
@@ -227,4 +227,4 @@ amountOption = Opt.option Opt.auto $
 printSigsOnlyOption :: Opt.Parser Bool
 printSigsOnlyOption = Opt.switch $
   Opt.long "print-sigs"
-    <> Opt.help "Print signatures only, do not submit proposal to network"
+    <> Opt.help "Print signatures only, do not submit data to network"

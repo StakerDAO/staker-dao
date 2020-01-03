@@ -59,6 +59,7 @@ data RemoteCommand
 data NewCouncilOptions = NewCouncilOptions
   { ncViaMultisig :: ViaMultisigOptions
   , ncCouncil :: Either (Text, Int) (Set KeyHash)
+  , ncPrintSigs :: Bool
   }
 
 data TransferOptions = TransferOptions
@@ -116,7 +117,7 @@ data DeployOptions = DeployOptions
   { msigAlias :: Text
   , stkrAlias :: Text
   , originator :: OrAlias Address
-  , teamPksFiles :: [FilePath]
+  , teamPkHashes :: [Text]
   , timeConfig :: TimeConfig
   }
 
@@ -181,7 +182,7 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
          <$> aliasOption "msig"
          <*> aliasOption "stkr"
          <*> addrOrAliasOption "from"
-         <*> many (fileArg)
+         <*> many pkHashOption
          <*> timeConfigOption
         )
 
@@ -205,6 +206,7 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
         (NewCouncilOptions
           <$> viaMultisigOptions
           <*> councilOption
+          <*> printSigsOnlyOption
         )
 
     voteSubprs = mkRemoteCmdPrs "vote" "Vote for a proposal" $

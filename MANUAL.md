@@ -145,7 +145,7 @@ key generation.
 To deploy both contracts, use following command:
 
 ```
-stkr-token-cli deploy ${env} --msigAlias msig --stkrAlias stkr --fromAlias payer --prod --start-year 2020
+stkr-token-cli deploy ${env} --msigAlias msig --stkrAlias stkr --fromAlias payer --prod --start-year 2020 --team-pk-hash <..ops key hash 1..> --team-pk-hash <..ops key hash 2..> ..
 ```
 
 Arguments `msig`, `stkr` are aliases under which
@@ -154,11 +154,13 @@ client.
 Alias `payer` is an alias for the key in tezos client
 which holds Tz tokens to pay for transaction fees.
 
-Note, that `stkr-token-cli` doesn't support `payer`
-being an encrypted key. So you're adviced to create
-a special purpose key for paying fees and fund it with
-Tz equivalent of 10$ (so that if `payer` key gets stolen,
-losses will be neglible).
+Specify as many `--team-pk-hash` arguments as there are
+Operations team keys. For example for three keys full command
+would look like following:
+
+```
+stkr-token-cli deploy ${env} --msigAlias msig --stkrAlias stkr --fromAlias payer --prod --start-year 2020 --team-pk-hash tz1LFLaayAWW6dYrzSX1SrnBzzMF9nZTF8QQ --team-pk-hash tz1c8JHqNnEg2WZ38GAxHjfttG6KqDX6wFTC --team-pk-hash tz1gePTw4hV33Xwu1sSpJmfpPVz9fej5hffx
+```
 
 Use following commands to print and copy addresses of `msig`
 and `stkr` contracts:
@@ -243,3 +245,4 @@ For example (for 2 keys of Operations team):
 ```
 stkr-token-cli new-proposal ${env} --stkrAlias stkr --msigAlias msig -p proposal.yaml --fromAlias payer --msigSig edpkuC9nfKfZiojv2wGFm8Rnd8fVfCXHKeZeZsSTu7VhT2iM61CAjT:edsigtmiPTdbYfFHqADLCRanqY65SqUHYuGhZFb5Gr7iu9XQwGm79FtJnrdqkPQQpzGQa9VwjCYXmt2nytkrK8EULnFPMkRtBmm --msigSig edpkuv6YqCv8gukEpi7E6qCDNGLTBUJs4EbtnkZPtLAx59iU6cT3Mq:edsigu2LYjiunz6fvBbjV7omoKn9RA9KB4NSNJjU6ii1jkarWdiHaSuFsbgXAbzgzb6rAey5VRQp58knEvn4Sj5xJ3Hm94N4bDN
 ```
+

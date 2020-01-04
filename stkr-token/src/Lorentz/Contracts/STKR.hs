@@ -12,6 +12,7 @@ import Lorentz.Contracts.STKR.Misc.Upgradability
   (ensureNotFrozen, forwardToSuccessor, freeze, setSuccessor, successorLambda)
 import Lorentz.Contracts.STKR.Parameter as Exports
 import Lorentz.Contracts.STKR.Storage as Exports
+import Lorentz.Contracts.STKR.Funding as Exports
 import qualified Lorentz.Contracts.STKR.Token as Token
 
 
@@ -22,6 +23,7 @@ publicRouter timeConfig = caseT @PublicEntrypointParam $
   ( #cVoteForProposal /-> voteForProposal (getCurrentStage timeConfig)
   , #cGetBalance /-> Token.getBalance
   , #cGetTotalSupply /-> Token.getTotalSupply
+  , #cFund /-> fund
   )
 
 opsRouter
@@ -32,6 +34,12 @@ opsRouter timeConfig = caseT @OpsTeamEntrypointParam $
   , #cTransfer /-> Token.transfer
   , #cNewProposal /-> newProposal (getCurrentStage timeConfig)
   , #cFreeze /-> freeze
+  )
+
+frozenRouter :: [PermitOnFrozenParam, Storage] :-> ContractOut Storage
+frozenRouter = caseT @PermitOnFrozenParam $
+  ( #cWithdraw /-> withdraw
+  , #cSetSuccessor /-> setSuccessor
   )
 
 entrypointRouter
@@ -50,7 +58,7 @@ entrypointRouter timeConfig = do
     , #cOpsTeamEntrypoint /-> do
         duupX @2 @Storage; ensureNotFrozen
         withOwnerEnsured $ opsRouter timeConfig
-    , #cSetSuccessor /-> withOwnerEnsured setSuccessor
+    , #cPermitOnFrozen /-> withOwnerEnsured frozenRouter
     )
 
 stkrContract :: TimeConfig -> Contract Parameter Storage

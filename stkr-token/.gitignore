@@ -1,5 +1,6 @@
 .stack-work/
 stkr-token.cabal
+cabal.project.local
 *~
 
 # cabal service directories

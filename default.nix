@@ -32,6 +32,10 @@ let
   dev = drv.env.overrideAttrs(attr: {
     buildInputs = attr.buildInputs
                ++ hsTools;
+    shellHook =
+      ''
+        cd stkr-token && hpack && cabal configure --extra-lib-dirs ${libsodium}/lib
+      '';
   });
 in
   if pkgs.lib.inNixShell then dev else drv

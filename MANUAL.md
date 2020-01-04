@@ -145,7 +145,7 @@ key generation.
 To deploy both contracts, use following command:
 
 ```
-stkr-token-cli deploy ${env} --msigAlias msig --stkrAlias stkr --fromAlias payer --prod --start-year 2020 --team-pk-hash <..ops key hash 1..> --team-pk-hash <..ops key hash 2..> ..
+stkr-token-cli deploy ${env} --msigAlias msig --stkrAlias stkr --fromAlias payer --prod --start-year 2020 --supply 1500000 --team-pk-hash <..ops key hash 1..> --team-pk-hash <..ops key hash 2..> ..
 ```
 
 Arguments `msig`, `stkr` are aliases under which
@@ -324,5 +324,5 @@ on a tezos client under alias `council1` for a proposal with sequential id
 (NB) Epoch numeration starts with `0` for January 2020.
 
 ```
-stkr-token-cli vote ${env} --stkrAlias stkr --msigAlias msig --fromAlias payer -e 3 -p 7 --memberKeyAlias council1
+stkr-token-cli vote ${env} --stkrAlias stkr --fromAlias payer -e 3 -p 7 --memberKeyAlias council1
 ```

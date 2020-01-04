@@ -16,13 +16,12 @@ import qualified Data.Set as S
 
 import Fmt (Buildable(..), Builder, blockMapF, jsonListF, mapF')
 
-import Tezos.Address (Address)
+import Tezos.Address (Address (..))
 import Tezos.Core (unsafeMkMutez)
-import Tezos.Crypto (formatKeyHash)
-import Tezos.Crypto (PublicKey, KeyHash, hashKey)
+import Tezos.Crypto (PublicKey, KeyHash (..), formatKeyHash, hashKey)
 import Util.Named ((:!))
 
-import Lorentz (IsoValue, Lambda, Operation)
+import Lorentz (BigMap (..), IsoValue, Lambda, Operation)
 
 import qualified Lorentz.Contracts.STKR as STKR
 import TzTest (TzTest)
@@ -34,7 +33,11 @@ data DeployOptions = DeployOptions
   , councilPks :: [PublicKey]
   , teamMultisig :: Address
   , timeConfig :: STKR.TimeConfig
+  , totalSupply_ :: Natural
   }
+
+reservoirAddr :: Address
+reservoirAddr = KeyAddress (KeyHash "staker-dao/reservoir")
 
 deploy :: DeployOptions -> TzTest Address
 deploy DeployOptions{..} = do
@@ -46,8 +49,8 @@ deploy DeployOptions{..} = do
           , votes = Map.empty
           , policy = #urls Map.empty
           , stageCounter = 0
-          , totalSupply = 0
-          , ledger = mempty
+          , totalSupply = totalSupply_
+          , ledger = BigMap $ Map.singleton reservoirAddr totalSupply_
           , frozen = False
           , successor = Nothing
           }

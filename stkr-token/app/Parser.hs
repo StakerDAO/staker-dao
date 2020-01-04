@@ -141,6 +141,7 @@ data DeployOptions = DeployOptions
   , originator :: OrAlias Address
   , teamPkHashes :: [KeyHash]
   , timeConfig :: TimeConfig
+  , totalSupply_ :: Natural
   }
 
 mkCmdPrs
@@ -207,6 +208,7 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
          <*> addrOrAliasOption "from"
          <*> many pkHashOption
          <*> timeConfigOption
+         <*> totalSupplyOption
         )
 
     newMsigKeysSubprs = mkRemoteCmdPrs "rotate-msig-keys" "Change keys of Msig contract" $

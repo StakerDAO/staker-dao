@@ -22,6 +22,7 @@ module Options
   , timeConfigOption
   , councilOption
 
+  , totalSupplyOption
   , proposalIdOption
   , epochOption
 
@@ -205,6 +206,14 @@ proposalIdOption = Opt.option Opt.auto $
     <> Opt.short 'p'
     <> Opt.help "Id of proposal to vote for"
     <> Opt.metavar "INT"
+
+totalSupplyOption :: Opt.Parser Natural
+totalSupplyOption = Opt.option Opt.auto $
+  Opt.long "supply"
+    <> Opt.help "Total supply of STKR token"
+    <> Opt.metavar "INT"
+    <> Opt.showDefault
+    <> Opt.value 0
 
 epochOption :: Opt.Parser Natural
 epochOption = Opt.option Opt.auto $

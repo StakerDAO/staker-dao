@@ -133,6 +133,7 @@ networkTestSpec TestOptions{..} = do
     DeployOptions
       { originator = faucet
       , councilPks = []
+      , totalSupply_ = 0
       , ..
       }
   runIO $ putTextLn $ "Deployed contracts: " <> pretty ca

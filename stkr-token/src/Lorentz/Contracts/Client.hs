@@ -43,6 +43,7 @@ data DeployOptions = DeployOptions
   , councilPks :: [PublicKey]
   , teamKeys :: Set KeyHash
   , timeConfig :: STKR.TimeConfig
+  , totalSupply_ :: Natural
   }
 
 data ContractAddresses = ContractAddresses

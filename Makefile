@@ -18,7 +18,7 @@ test:
 	nix-shell --run 'cabal test'
 
 repl-exe:
-	nix-shell --run 'cd stkr-token && hpack && cabal repl stkr-token-cli'
+	nix-shell --run 'cabal repl stkr-token-cli'
 
 repl-test:
 	nix-shell --run 'cabal repl stkr-token-test'

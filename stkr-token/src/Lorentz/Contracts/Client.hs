@@ -1,3 +1,5 @@
+{-# LANGUAGE NoRebindableSyntax #-}
+
 module Lorentz.Contracts.Client
   ( DeployOptions (..)
   , deploy
@@ -9,6 +11,8 @@ module Lorentz.Contracts.Client
   , callViaMultisig
   , VoteForProposalOptions (..)
   , voteForProposal
+  , getTotalSupply
+  , getBalance
   ) where
 
 import Prelude
@@ -16,6 +20,8 @@ import Prelude
 import Fmt (Buildable(..), Builder, mapF)
 import Named (arg)
 
+-- import Lorentz (mkView)
+-- import Util.Named ((.!))
 import Lorentz.Constraints (NicePackedValue)
 import Lorentz.Pack (lPackValue)
 import Tezos.Address (Address)
@@ -125,3 +131,42 @@ voteForProposal VoteForProposalOptions {..} = do
     $ STKR.PublicEntrypoint
     . STKR.VoteForProposal
     $ (#proposalId vpProposalId, #votePk pk, #voteSig sig)
+
+-- We dont' bother with getBalance/getTotalSupply entrypoints ATM, simply use
+--   getStorage primitive, and return necessary values immediately.
+-- Quick and dirty, we introduce no custom error type, supply error
+--   messages directly.
+
+withGetStorage :: (STKR.AlmostStorage -> TzTest ()) -> String -> Address -> TzTest ()
+withGetStorage f partname stkr = do
+  st@STKR.AlmostStorage{..} <- STKR.getStorage stkr
+  if isNothing successor
+    then f st
+    else fail upgradedError
+  where
+    upgradedError =
+        "STKR contract is upgraded, please use " ++ partname
+         ++ " entrypoint instead of getStorage API."
+
+getTotalSupply :: Address -> TzTest ()
+getTotalSupply =
+  withGetStorage
+    (\STKR.AlmostStorage{..} -> putTextLn $ "Total supply: " <> show totalSupply)
+      "getTotalSupply"
+
+getBalance :: Address -> Address -> TzTest ()
+getBalance stkr whose = withGetStorage f "getBalance" stkr
+  where
+    f STKR.AlmostStorage{..} = do
+        balance <- Tz.getElementTextOfBigMapByAddress whose ledger
+        putTextLn $ "Balance: " <> balance
+
+{-
+-- We have no `callback_ref` defined ATM
+callGetBalance :: Address -> Address -> Address -> TzTest ()
+callGetBalance stkr who whose =
+  Tz.call who stkr
+    $ STKR.PublicEntrypoint
+    . STKR.GetBalance
+    $ mkView (#owner .! whose) callback_ref
+-}

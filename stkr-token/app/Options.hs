@@ -24,6 +24,8 @@ module Options
 
   , proposalIdOption
   , epochOption
+
+  , valueOption
   ) where
 
 import Prelude
@@ -205,4 +207,10 @@ epochOption :: Opt.Parser Natural
 epochOption = Opt.option Opt.auto $
   Opt.long "epoch" <> Opt.short 'e'
     <> Opt.help "Epoch in which a proposal to vote was created"
+    <> Opt.metavar "INT"
+
+valueOption :: Opt.Parser Natural
+valueOption = Opt.option Opt.auto $
+  Opt.long "value" <> Opt.short 'v'
+    <> Opt.help "Value to transfer"
     <> Opt.metavar "INT"

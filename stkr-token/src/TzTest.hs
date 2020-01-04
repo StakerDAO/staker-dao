@@ -19,6 +19,8 @@ module TzTest
   , getChainId
   , getMainChainId
   , getHeadTimestamp
+  , getElementTextOfBigMapByAddress
+  , getElementOfBigMapByAddress
 
   , resolve
   , resolve'
@@ -69,7 +71,7 @@ execWithShell :: [Text] -> (Shell Line -> Shell Line) -> TzTest Text
 execWithShell args shellTransform = do
   Env{..} <- ask
   Turtle.export "TEZOS_CLIENT_UNSAFE_DISABLE_DISCLAIMER" "YES"
-  -- putTextLn $ "Executing command: " <> T.intercalate " " args
+  putTextLn $ "Executing command: " <> T.intercalate " " args
   let outputShell =
         Turtle.inproc envTezosClientCmd
           ([ "-A", envNode
@@ -218,18 +220,22 @@ importSecretKey alias sk = do
   let addrStr = words output ^. ix 3
   either (fail . pretty) pure (parseAddress addrStr)
 
-getStorage
-  :: forall st.
-  ( IsoValue st
-  , SingI (ToT st)
-  , Typeable (ToT st)
+-- FIXME? Move to Morley?
+type Parsable t =
+  ( IsoValue t
+  , SingI (ToT t)
+  , Typeable (ToT t)
   )
+
+getStorage
+  :: forall st. Parsable st
   => Address -> TzTest st
 getStorage addr = do
   output <- exec $
     ["get", "contract", "storage", "for", formatAddress addr]
   either (fail . pretty) pure $
     parseLorentzValue @st output
+
 stripQuotes :: Text -> Text
 stripQuotes = T.dropAround (== '"') . T.strip
 
@@ -249,3 +255,35 @@ getHeadTimestamp = do
   output <- exec $ ["get", "timestamp"]
   maybe (fail "Failed to parse timestamp") pure $
     parseTimestamp . T.strip $ output
+
+hashAddressToScriptExpression :: Address -> TzTest Text
+hashAddressToScriptExpression addr =
+  T.strip . lineWithPrefix "Script-expression-ID-Hash: " <$>
+     exec ["hash", "data", "\"" <> formatAddress addr <> "\"", "of", "type", "address"]
+
+getElementTextOfBigMapByHash
+  :: Text -> Natural -> TzTest Text
+getElementTextOfBigMapByHash thash bigMapId = do
+  -- FIXME??? I haven't tested it (it fails) and don't yet know what the output
+  --   should be prefixed with (if any), so I assume empty prefix ATM.
+  T.strip . lineWithPrefix "" <$>
+     exec ["get", "element", thash, "of", "big", "map", show bigMapId]
+
+getElementOfBigMapByHash
+  :: forall e. Parsable e
+  => Text -> Natural -> TzTest e
+getElementOfBigMapByHash thash bigMapId = do
+  eltext <- getElementTextOfBigMapByHash thash bigMapId
+  either (fail . pretty) pure $
+    parseLorentzValue @e eltext
+
+getElementTextOfBigMapByAddress
+  :: Address -> Natural -> TzTest Text
+getElementTextOfBigMapByAddress addr bigMapId =
+  hashAddressToScriptExpression addr >>= (`getElementTextOfBigMapByHash` bigMapId)
+
+getElementOfBigMapByAddress
+  :: forall e. Parsable e
+  => Address -> Natural -> TzTest e
+getElementOfBigMapByAddress addr bigMapId =
+  hashAddressToScriptExpression addr >>= (`getElementOfBigMapByHash` bigMapId)

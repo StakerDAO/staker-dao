@@ -9,6 +9,9 @@ module Parser
   , NewCouncilOptions (..)
   , ViaMultisigOptions (..)
   , VoteForProposalOptions (..)
+  , GetBalanceOptions (..)
+  , GetTotalSupplyOptions (..)
+  , TransferOptions (..)
   , cmdParser
   ) where
 
@@ -43,10 +46,31 @@ data RemoteCommand
   | NewProposal NewProposalOptions
   | NewCouncil NewCouncilOptions
   | VoteForProposal VoteForProposalOptions
+  | GetBalance GetBalanceOptions
+  | GetTotalSupply GetTotalSupplyOptions
+  | Transfer TransferOptions
 
 data NewCouncilOptions = NewCouncilOptions
   { ncViaMultisig :: ViaMultisigOptions
   , ncCouncil :: Either (Text, Int) (Set KeyHash)
+  }
+
+data TransferOptions = TransferOptions
+  { tViaMultisig :: ViaMultisigOptions
+  , tFrom :: OrAlias Address
+  , tTo :: OrAlias Address
+  , tVal :: Natural
+  }
+
+data GetBalanceOptions = GetBalanceOptions
+  { gbStkr :: OrAlias Address
+  -- , gbFrom :: OrAlias Address -- use getStorage API ATM
+  , gbWhose :: OrAlias Address
+  }
+
+data GetTotalSupplyOptions = GetTotalSupplyOptions
+  { gtsStkr :: OrAlias Address
+  -- , gtsFrom :: OrAlias Address -- use getStorage API ATM
   }
 
 data VoteForProposalOptions = VoteForProposalOptions
@@ -119,6 +143,9 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
         , newProposalSubprs
         , newCouncilSubprs
         , voteSubprs
+        , getBalanceSubprs
+        , getTotalSupplySubprs
+        , transferSubprs
         ]
 
     printMsigSubprs = mkCmdPrs "print-multisig" "Print multisig contract" $
@@ -170,3 +197,27 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
 
     printStorageSubprs = mkRemoteCmdPrs "print-storage" "Print storage of a contract" $
       PrintStorage <$> addrOrAliasOption "contract"
+
+    getBalanceSubprs = mkRemoteCmdPrs "get-balance-stkr" "Get balance of a STKR token address" $
+      GetBalance <$>
+        (GetBalanceOptions
+          <$> addrOrAliasOption "stkr"
+          -- <*> addrOrAliasOption "from" -- use getStorage API ATM
+          <*> addrOrAliasOption "whose"
+        )
+
+    getTotalSupplySubprs = mkRemoteCmdPrs "get-total-stkr" "Get total supply of STKR" $
+      GetTotalSupply <$>
+        (GetTotalSupplyOptions
+          <$> addrOrAliasOption "stkr"
+          -- <*> addrOrAliasOption "from" -- use getStorage API ATM
+        )
+
+    transferSubprs = mkRemoteCmdPrs "transfer" "Transfer tokens" $
+      Transfer <$>
+        (TransferOptions
+          <$> viaMultisigOptions
+          <*> addrOrAliasOption "from"
+          <*> addrOrAliasOption "to"
+          <*> valueOption
+        )

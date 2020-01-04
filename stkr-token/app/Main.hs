@@ -13,6 +13,7 @@ import qualified Options.Applicative as Opt
 import qualified Data.Yaml as Yaml
 import Tezos.Crypto (hashKey, parsePublicKey)
 import Util.IO (readFileUtf8, writeFileUtf8)
+import Util.Named ((.!))
 
 import TzTest (TzTest)
 import qualified TzTest as Tz
@@ -25,7 +26,8 @@ import qualified Lorentz.Contracts.STKR.Client as STKR
 import Parser
   (CliCommand(..), DeployOptions(..), LocalCommand(..), NewCouncilOptions(..),
   NewProposalOptions(..), RemoteAction(..), RemoteCommand(..), TzEnvConfig(..),
-  ViaMultisigOptions(..), VoteForProposalOptions(..), cmdParser)
+  ViaMultisigOptions(..), VoteForProposalOptions(..), GetBalanceOptions(..),
+  GetTotalSupplyOptions (..), TransferOptions (..), cmdParser)
 
 main :: IO ()
 main = do
@@ -105,3 +107,16 @@ remoteCmdRunner = \case
   PrintStorage addr_ ->
     Tz.resolve' Tz.ContractAlias addr_ >>=
     STKR.getStorage >>= liftIO . T.putStrLn . pretty
+  GetBalance GetBalanceOptions {..} -> do
+    -- fromAddr <- Tz.resolve' Tz.AddressAlias gbFrom -- use getStorage API ATM
+    stkrAddr <- Tz.resolve' Tz.ContractAlias gbStkr
+    whoseAddr <- Tz.resolve' Tz.AddressAlias gbWhose
+    Client.getBalance stkrAddr whoseAddr
+  GetTotalSupply GetTotalSupplyOptions {..} -> do
+    -- fromAddr <- Tz.resolve' Tz.AddressAlias gbFrom -- use getStorage API ATM
+    stkrAddr <- Tz.resolve' Tz.ContractAlias gtsStkr
+    Client.getTotalSupply stkrAddr
+  Transfer TransferOptions {..} -> do
+    tFromAddr <- Tz.resolve' Tz.AddressAlias tFrom
+    tToAddr <- Tz.resolve' Tz.AddressAlias tTo
+    callViaMultisig (STKR.Transfer (#from .! tFromAddr, #to .! tToAddr, #value .! tVal)) tViaMultisig

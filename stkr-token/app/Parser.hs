@@ -49,6 +49,7 @@ data RemoteCommand
   | GetBalance GetBalanceOptions
   | GetTotalSupply GetTotalSupplyOptions
   | Transfer TransferOptions
+  | Freeze ViaMultisigOptions
 
 data NewCouncilOptions = NewCouncilOptions
   { ncViaMultisig :: ViaMultisigOptions
@@ -146,6 +147,7 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
         , getBalanceSubprs
         , getTotalSupplySubprs
         , transferSubprs
+        , freezeSubprs
         ]
 
     printMsigSubprs = mkCmdPrs "print-multisig" "Print multisig contract" $
@@ -221,3 +223,6 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
           <*> addrOrAliasOption "to"
           <*> valueOption
         )
+
+    freezeSubprs = mkRemoteCmdPrs "freeze" "Freeze the contract" $
+      Freeze <$> viaMultisigOptions

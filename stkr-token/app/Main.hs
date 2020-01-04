@@ -120,3 +120,4 @@ remoteCmdRunner = \case
     tFromAddr <- Tz.resolve' Tz.AddressAlias tFrom
     tToAddr <- Tz.resolve' Tz.AddressAlias tTo
     callViaMultisig (STKR.Transfer (#from .! tFromAddr, #to .! tToAddr, #value .! tVal)) tViaMultisig
+  Freeze msigOptions -> callViaMultisig (STKR.Freeze ()) msigOptions

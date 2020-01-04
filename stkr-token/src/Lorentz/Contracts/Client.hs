@@ -13,6 +13,7 @@ module Lorentz.Contracts.Client
   , voteForProposal
   , getTotalSupply
   , getBalance
+  , setSuccessor
   ) where
 
 import Prelude
@@ -22,6 +23,7 @@ import Named (arg)
 
 -- import Lorentz (mkView)
 -- import Util.Named ((.!))
+import Lorentz.Value (toContractRef)
 import Lorentz.Constraints (NicePackedValue)
 import Lorentz.Pack (lPackValue)
 import Tezos.Address (Address)
@@ -109,6 +111,21 @@ data ViaMultisigOptions = ViaMultisigOptions
   , vmoSign :: ByteString -> TzTest [(PublicKey, Signature)]
   , vmoNonce :: Maybe Natural
   }
+
+-- We copypasted callViaMultisig almost verbatim.
+-- Does this make any sense at all?
+setSuccessor
+  :: Address -> ViaMultisigOptions -> TzTest ()
+setSuccessor newStkr ViaMultisigOptions {..} = do
+  let lambda = STKR.successorLambda (toContractRef newStkr)
+  let order = Msig.mkCallOrderWrap @STKR.Parameter (Msig.Unsafe vmoStkr) #cSetSuccessor (STKR.EnsureOwner (#successor lambda))
+  let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage vmoMsig
+  nonce <- maybe getNonce pure vmoNonce
+  let toSign = Msig.ValueToSign vmoMsig nonce order
+  let bytes = lPackValue toSign
+  pkSigs <- vmoSign bytes
+  let param = Msig.Parameter order nonce pkSigs
+  Tz.call vmoFrom vmoMsig param
 
 data VoteForProposalOptions = VoteForProposalOptions
   { vpStkr :: Address

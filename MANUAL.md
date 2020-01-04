@@ -54,11 +54,11 @@ Each command requires these arguments to be provided:
   * Port of tezos node
 
 When describing usage of particular command we will
-not mention these params, but only use `${envParams}`
+not mention these params, but only use `${env}`
 placeholder. I.e.
 
 ```
-envParams=" --tzclient <.. path to tezos client > -A <.. tezos node address ..> -P <.. tezos node port ..> "
+env=" --tzclient <.. path to tezos client > -A <.. tezos node address ..> -P <.. tezos node port ..> "
 ```
 
 In explanation below we will specify commands for
@@ -311,4 +311,18 @@ For example (for 2 keys of old Operations team and 3 keys of new Operations team
 
 ```
 stkr-token-cli rotate-msig-keys ${env} --msigAlias msig --fromAlias payer --team-pk-hash tz1LFLaayAWW6dYrzSX1SrnBzzMF9nZTF8QQ --team-pk-hash tz1c8JHqNnEg2WZ38GAxHjfttG6KqDX6wFTC --team-pk-hash tz1gePTw4hV33Xwu1sSpJmfpPVz9fej5hffx --msigSig edpkuC9nfKfZiojv2wGFm8Rnd8fVfCXHKeZeZsSTu7VhT2iM61CAjT:edsigtmiPTdbYfFHqADLCRanqY65SqUHYuGhZFb5Gr7iu9XQwGm79FtJnrdqkPQQpzGQa9VwjCYXmt2nytkrK8EULnFPMkRtBmm --msigSig edpkuv6YqCv8gukEpi7E6qCDNGLTBUJs4EbtnkZPtLAx59iU6cT3Mq:edsigu2LYjiunz6fvBbjV7omoKn9RA9KB4NSNJjU6ii1jkarWdiHaSuFsbgXAbzgzb6rAey5VRQp58knEvn4Sj5xJ3Hm94N4bDN
+```
+
+### Vote for a proposal
+
+To vote for a proposal you need to know integer id of proposal (i.e. proposal sequential number) and an epoch in which this proposal is submitted.
+
+To vote on behalf of a council member with key being kept encrypted
+on a tezos client under alias `council1` for a proposal with sequential id
+`7` submitted in epoch `3`, use following command:
+
+(NB) Epoch numeration starts with `0` for January 2020.
+
+```
+stkr-token-cli vote ${env} --stkrAlias stkr --msigAlias msig --fromAlias payer -e 3 -p 7 --memberKeyAlias council1
 ```

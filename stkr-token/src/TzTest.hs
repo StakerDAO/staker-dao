@@ -266,6 +266,7 @@ getElementTextOfBigMapByHash
 getElementTextOfBigMapByHash thash bigMapId = do
   -- FIXME??? I haven't tested it (it fails) and don't yet know what the output
   --   should be prefixed with (if any), so I assume empty prefix ATM.
+  -- FIXME!!! Handle "Error:\n  Did not find service:"
   T.strip . lineWithPrefix "" <$>
      exec ["get", "element", thash, "of", "big", "map", show bigMapId]
 

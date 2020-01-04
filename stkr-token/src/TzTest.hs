@@ -356,7 +356,7 @@ getHeadTimestamp = do
 hashAddressToScriptExpression :: Address -> TzTest Text
 hashAddressToScriptExpression addr =
   T.strip . lineWithPrefix "Script-expression-ID-Hash: " <$>
-     exec ["hash", "data", "\"" <> formatAddress addr <> "\"", "of", "type", "address"]
+     exec False ["hash", "data", "\"" <> formatAddress addr <> "\"", "of", "type", "address"]
 
 getElementTextOfBigMapByHash
   :: Text -> Natural -> TzTest Text
@@ -365,7 +365,7 @@ getElementTextOfBigMapByHash thash bigMapId = do
   --   should be prefixed with (if any), so I assume empty prefix ATM.
   -- FIXME!!! Handle "Error:\n  Did not find service:"
   T.strip . lineWithPrefix "" <$>
-     exec ["get", "element", thash, "of", "big", "map", show bigMapId]
+     exec True ["get", "element", thash, "of", "big", "map", show bigMapId]
 
 getElementOfBigMapByHash
   :: forall e. Parsable e

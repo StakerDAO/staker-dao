@@ -14,8 +14,8 @@ module Lorentz.Contracts.Client
   , voteForProposal
   , getTotalSupply
   , getBalance
-  , setSuccessor
-  , withdraw
+  , mkStkrOpsOrder
+  , mkStkrFrozenOrder
   ) where
 
 import Prelude
@@ -23,7 +23,6 @@ import Prelude
 import Fmt (Buildable(..), Builder, mapF)
 import Named (arg)
 
-import Lorentz.Value (toContractRef, Mutez)
 import Lorentz.Constraints (NicePackedValue)
 import Lorentz.Pack (lPackValue)
 import Tezos.Address (Address)
@@ -92,12 +91,11 @@ signBytes
 signBytes sk bytes =
   (toPublic sk, sign sk bytes)
 
-signViaMultisigGeneric
-  :: forall cName it.
-  Msig.TransferOrderWrapC STKR.Parameter cName (STKR.EnsureOwner it)
-  => Msig.Label cName -> it -> ViaMultisigOptions -> TzTest (Msig.Parameter, [(PublicKey, Signature)])
-signViaMultisigGeneric label stkrParam ViaMultisigOptions {..} = do
-  let order = Msig.mkCallOrderWrap @STKR.Parameter (Msig.Unsafe vmoStkr) label (STKR.EnsureOwner stkrParam)
+signViaMultisig
+  :: Msig.Order
+  -> ViaMultisigOptions
+  -> TzTest (Msig.Parameter, [(PublicKey, Signature)])
+signViaMultisig order ViaMultisigOptions {..} = do
   let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage vmoMsig
   nonce <- maybe getNonce pure vmoNonce
   let toSign = Msig.ValueToSign vmoMsig nonce order
@@ -106,46 +104,35 @@ signViaMultisigGeneric label stkrParam ViaMultisigOptions {..} = do
   let param = Msig.Parameter order nonce pkSigs
   pure (param, pkSigs)
 
-signViaMultisig
+mkStkrFrozenOrder
+  :: STKR.PermitOnFrozenParam
+  -> Address
+  -> Msig.Order
+mkStkrFrozenOrder stkrParam stkrAddr =
+  Msig.mkCallOrderWrap @STKR.Parameter
+    (Msig.Unsafe stkrAddr) #cPermitOnFrozen
+    (STKR.EnsureOwner stkrParam)
+
+mkStkrOpsOrder
   :: STKR.OpsTeamEntrypointParam
-  -> ViaMultisigOptions
-  -> TzTest (Msig.Parameter, [(PublicKey, Signature)])
-signViaMultisig = signViaMultisigGeneric #cOpsTeamEntrypoint
+  -> Address
+  -> Msig.Order
+mkStkrOpsOrder stkrParam stkrAddr =
+  Msig.mkCallOrderWrap @STKR.Parameter
+    (Msig.Unsafe stkrAddr) #cOpsTeamEntrypoint
+    (STKR.EnsureOwner stkrParam)
 
 callViaMultisig
-  :: Address
-  -> STKR.OpsTeamEntrypointParam
-  -> ViaMultisigOptions
-  -> TzTest ()
-callViaMultisig from stkrParam vmo = do
-  (param, _) <- signViaMultisigGeneric #cOpsTeamEntrypoint stkrParam vmo
+  :: Address -> Msig.Order -> ViaMultisigOptions -> TzTest ()
+callViaMultisig from order vmo = do
+  (param, _) <- signViaMultisig order vmo
   Tz.call from (vmoMsig vmo) param
 
 data ViaMultisigOptions = ViaMultisigOptions
   { vmoMsig :: Address
-  , vmoStkr :: Address
   , vmoSign :: ByteString -> TzTest [(PublicKey, Signature)]
   , vmoNonce :: Maybe Natural
   }
-
-callOnFrozen
-  :: Address
-  -> STKR.PermitOnFrozenParam
-  -> ViaMultisigOptions
-  -> TzTest ()
-callOnFrozen from stkrParam vmo = do
-  (param, _) <- signViaMultisigGeneric #cPermitOnFrozen stkrParam vmo
-  Tz.call from (vmoMsig vmo) param
-
-setSuccessor
-  :: Address -> Address -> ViaMultisigOptions -> TzTest ()
-setSuccessor from newStkrAddr = callOnFrozen from $
-  STKR.SetSuccessor $ #successor $ STKR.successorLambda (toContractRef newStkrAddr)
-
-withdraw
-   :: Address -> Address -> Mutez -> ViaMultisigOptions -> TzTest ()
-withdraw feePayer toAddr amount = callOnFrozen feePayer $
-  STKR.Withdraw (#to toAddr, #amount amount)
 
 data VoteForProposalOptions = VoteForProposalOptions
   { vpStkr :: Address

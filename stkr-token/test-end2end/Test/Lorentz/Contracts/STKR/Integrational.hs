@@ -29,7 +29,6 @@ import Lorentz.Contracts.Client as Client
 import qualified Lorentz.Contracts.STKR as STKR
 import qualified Lorentz.Contracts.STKR.Client as STKR
 
-
 data TestOptions = TestOptions
   { faucetName :: Text
   , msigAlias :: Text
@@ -141,21 +140,20 @@ networkTestSpec TestOptions{..} = do
   let vmo =
         ViaMultisigOptions
           { vmoMsig = msigAddr
-          , vmoStkr = stkrAddr
           , vmoSign = pure . multisignBytes teamSks
           , vmoNonce = Nothing
           }
 
   it "passes happy case for newProposal" . tzTest $ do
     waitForStage 0
-    callViaMultisig faucet (STKR.NewProposal newProposal) vmo
+    callViaMultisig faucet (Client.mkStkrOpsOrder (STKR.NewProposal newProposal) stkrAddr) vmo
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} -> do
       let proposalAndHash =
             ( #proposal newProposal, #proposalHash $
               STKR.Blake2BHash $ blake2b $ lPackValue newProposal )
       proposals `shouldBe` [proposalAndHash]
 
-    callViaMultisig faucet (STKR.NewCouncil newCouncilKeys) vmo
+    callViaMultisig faucet (Client.mkStkrOpsOrder (STKR.NewCouncil newCouncilKeys) stkrAddr) vmo
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} ->
       councilKeys `shouldBe` newCouncilKeys
 

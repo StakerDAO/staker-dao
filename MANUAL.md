@@ -246,3 +246,69 @@ For example (for 2 keys of Operations team):
 stkr-token-cli new-proposal ${env} --stkrAlias stkr --msigAlias msig -p proposal.yaml --fromAlias payer --msigSig edpkuC9nfKfZiojv2wGFm8Rnd8fVfCXHKeZeZsSTu7VhT2iM61CAjT:edsigtmiPTdbYfFHqADLCRanqY65SqUHYuGhZFb5Gr7iu9XQwGm79FtJnrdqkPQQpzGQa9VwjCYXmt2nytkrK8EULnFPMkRtBmm --msigSig edpkuv6YqCv8gukEpi7E6qCDNGLTBUJs4EbtnkZPtLAx59iU6cT3Mq:edsigu2LYjiunz6fvBbjV7omoKn9RA9KB4NSNJjU6ii1jkarWdiHaSuFsbgXAbzgzb6rAey5VRQp58knEvn4Sj5xJ3Hm94N4bDN
 ```
 
+### Appoint a new council
+
+As a first step, council members must generate secret keys and
+share corresponding key hashes to Operations team.
+
+Then each Operations team member should sign new council
+appointement operation using the following command:
+
+```
+stkr-token-cli new-council ${env} --stkrAlias stkr --msigAlias msig --member <..council key hash 1..> --member <..council key hash 2..>  --msigKeyAlias stkrOps1 --print-sigs
+```
+
+For each council member, his key hash should be passed
+to the command using `--member` option.
+
+Output from each Operations team member should be collected
+and then used in a command to execute new council command
+on the network:
+
+```
+stkr-token-cli new-council ${env} --stkrAlias stkr --msigAlias msig --fromAlias payer --member <..council key hash 1..> --member <..council key hash 2..>  --msigSig <..sig1..> --msigSig <..sig2..> ..
+```
+
+Where instead of `<..sig1..>`, `<..sig2..>` outputs from Operations
+team members should be substituted.
+
+
+For example (for 2 keys of Operations team and 3 keys of Council):
+
+```
+stkr-token-cli new-council ${env} --stkrAlias stkr --msigAlias msig --fromAlias payer --member tz1LFLaayAWW6dYrzSX1SrnBzzMF9nZTF8QQ --member tz1c8JHqNnEg2WZ38GAxHjfttG6KqDX6wFTC --member tz1gePTw4hV33Xwu1sSpJmfpPVz9fej5hffx --msigSig edpkuC9nfKfZiojv2wGFm8Rnd8fVfCXHKeZeZsSTu7VhT2iM61CAjT:edsigtmiPTdbYfFHqADLCRanqY65SqUHYuGhZFb5Gr7iu9XQwGm79FtJnrdqkPQQpzGQa9VwjCYXmt2nytkrK8EULnFPMkRtBmm --msigSig edpkuv6YqCv8gukEpi7E6qCDNGLTBUJs4EbtnkZPtLAx59iU6cT3Mq:edsigu2LYjiunz6fvBbjV7omoKn9RA9KB4NSNJjU6ii1jkarWdiHaSuFsbgXAbzgzb6rAey5VRQp58knEvn4Sj5xJ3Hm94N4bDN
+```
+
+### Rotate Operations team keys
+
+In order to change Operations team keys, a new set of key
+hashes should be prepared and signed by majority of
+the old Operations team keys.
+
+Each Operations team member should sign new council
+appointement operation using the following command:
+
+```
+stkr-token-cli rotate-msig-keys ${env} --msigAlias msig --team-pk-hash <..ops key hash 1..> --team-pk-hash <..ops key hash 2..> --msigKeyAlias stkrOps1 --print-sigs
+```
+
+Each key of new Operations team should be passed
+to the command using `--tam-pk-hash` option.
+
+Output from each Operations team member should be collected
+and then used in a command to execute new council command
+on the network:
+
+```
+stkr-token-cli rotate-msig-keys ${env} --msigAlias msig --fromAlias payer --team-pk-hash <..ops key hash 1..> --team-pk-hash <..ops key hash 2..> --msigSig <..sig1..> --msigSig <..sig2..> ..
+```
+
+Where instead of `<..sig1..>`, `<..sig2..>` outputs from Operations
+team members should be substituted.
+
+
+For example (for 2 keys of old Operations team and 3 keys of new Operations team):
+
+```
+stkr-token-cli rotate-msig-keys ${env} --msigAlias msig --fromAlias payer --team-pk-hash tz1LFLaayAWW6dYrzSX1SrnBzzMF9nZTF8QQ --team-pk-hash tz1c8JHqNnEg2WZ38GAxHjfttG6KqDX6wFTC --team-pk-hash tz1gePTw4hV33Xwu1sSpJmfpPVz9fej5hffx --msigSig edpkuC9nfKfZiojv2wGFm8Rnd8fVfCXHKeZeZsSTu7VhT2iM61CAjT:edsigtmiPTdbYfFHqADLCRanqY65SqUHYuGhZFb5Gr7iu9XQwGm79FtJnrdqkPQQpzGQa9VwjCYXmt2nytkrK8EULnFPMkRtBmm --msigSig edpkuv6YqCv8gukEpi7E6qCDNGLTBUJs4EbtnkZPtLAx59iU6cT3Mq:edsigu2LYjiunz6fvBbjV7omoKn9RA9KB4NSNJjU6ii1jkarWdiHaSuFsbgXAbzgzb6rAey5VRQp58knEvn4Sj5xJ3Hm94N4bDN
+```

@@ -71,8 +71,8 @@ addressOption name =
   Opt.option addressReader $
     mconcat [Opt.long name, Opt.metavar "ADDRESS"]
 
-pkHashOption :: Opt.Parser Text
-pkHashOption = Opt.strOption $ mconcat
+pkHashOption :: Opt.Parser KeyHash
+pkHashOption = Opt.option keyHashReader $ mconcat
   [ Opt.metavar "PK_HASH"
   , Opt.long "team-pk-hash"
   ]

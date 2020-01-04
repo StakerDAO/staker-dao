@@ -71,7 +71,7 @@ execWithShell :: [Text] -> (Shell Line -> Shell Line) -> TzTest Text
 execWithShell args shellTransform = do
   Env{..} <- ask
   Turtle.export "TEZOS_CLIENT_UNSAFE_DISABLE_DISCLAIMER" "YES"
-  putTextLn $ "Executing command: " <> T.intercalate " " args
+  -- putTextLn $ "Executing command: " <> T.intercalate " " args
   let outputShell =
         Turtle.inproc envTezosClientCmd
           ([ "-A", envNode

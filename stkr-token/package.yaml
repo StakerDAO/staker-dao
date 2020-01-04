@@ -33,14 +33,19 @@ library:
     - morley-prelude
     # deps for tztest
     - aeson
+    - bytestring
+    - haskeline
+    - cryptonite
     - text
-    - turtle
+    - process
     - singletons
     - fmt
     - microlens
     - time
     - yaml
     - vinyl
+  extra-libraries:
+    - sodium
 
 executables:
   stkr-token-exe:
@@ -58,6 +63,8 @@ executables:
       - optparse-applicative
       - turtle
       - text
+    ghc-options:
+      - -threaded # IMPORTANT!
 
   stkr-token-test-end2end:
     <<: *lorentz-default-extensions

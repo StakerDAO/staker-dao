@@ -8,29 +8,29 @@
 
 # Build everything
 dev:
-	nix-shell --run 'cd stkr-token && hpack && cabal build'
+	nix-shell --run 'cabal build'
 
 end2end:
-	nix-shell --run 'cd stkr-token && hpack && cabal run stkr-token-test-end2end'
+	nix-shell --run 'cabal run stkr-token-test-end2end'
 
 # Run tests in all packages which have them.
 test:
-	nix-shell --run 'cd stkr-token && hpack && cabal test'
+	nix-shell --run 'cabal test'
 
 repl-exe:
-	nix-shell --run 'cd stkr-token && hpack && cabal repl stkr-token-exe'
+	nix-shell --run 'cabal repl stkr-token-exe'
 
 repl-test:
-	nix-shell --run 'cd stkr-token && hpack && cabal repl stkr-token-test'
+	nix-shell --run 'cabal repl stkr-token-test'
 
 repl:
-	nix-shell --run 'cd stkr-token && hpack && cabal repl'
+	nix-shell --run 'cabal repl'
 
 shell:
-	nix-shell --command 'cd stkr-token && hpack; return'
+	nix-shell
 
 build:
 	nix-build
 
 run:
-	nix-shell --run "cd stkr-token && hpack && cabal run stkr-token-exec"
+	nix-shell --run "cabal run stkr-token-exec"

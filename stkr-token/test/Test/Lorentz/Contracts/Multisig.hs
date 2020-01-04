@@ -15,6 +15,7 @@ import Lorentz.Pack (lPackValue)
 import Lorentz.Test
 import Test.Hspec (Spec, it)
 import Tezos.Crypto (KeyHash, PublicKey, SecretKey, detSecretKey, hashKey, sign, toPublic)
+import Util.Named ((.!))
 
 import Lorentz.Contracts.Client (multisignValue)
 import Lorentz.Contracts.Multisig
@@ -219,6 +220,30 @@ generalFailuresSpec mkOrder = do
       callMsig msig 1 order []
       validate . Left $
         lExpectCustomError #majorityQuorumNotReached ()
+
+  it "fails if the amount is non-zero" $
+    integrationalTestExpectation $ do
+      order <- mkOrder
+      msig <- originate $ take 4 publicKeys
+      let nonce = 1
+      let msigAddr = L.fromContractAddr msig
+
+      let toSign = ValueToSign
+            { vtsMultisigAddress = L.fromContractAddr msigAddr
+            , vtsNonce = nonce
+            , vtsOrder = order
+            }
+
+      let signatures = multisignValue (take 3 secretKeys) toSign
+      lTransfer (#from .! genesisAddress) (#to .! msigAddr) (L.toMutez 100) $
+        Parameter
+          { order = order
+          , nonce = nonce
+          , signatures = signatures
+          }
+
+      validate . Left $
+        lExpectCustomError #nonzeroAmountReceived ()
 
   wrongKeySpec mkOrder [1, 3, 5]
   wrongSignatureSpec mkOrder [1, 3, 5]

@@ -11,7 +11,7 @@ import Lorentz.Contracts.STKR.Misc.TypeDefs
 import Lorentz.Contracts.STKR.Storage (Storage)
 
 ensureOwner :: forall a s. EnsureOwner a & Storage & s :-> a & s
-ensureOwner= do
+ensureOwner = do
   dip $ do
     toField #owner
     sender

@@ -12,7 +12,9 @@ import qualified Lorentz as L
 import qualified Options.Applicative as Opt
 import qualified Data.Yaml as Yaml
 import Tezos.Crypto (hashKey, parsePublicKey)
+import Tezos.Core (unsafeMkMutez)
 import Util.IO (readFileUtf8, writeFileUtf8)
+import Util.Named ((.!))
 
 import TzTest (TzTest)
 import qualified TzTest as Tz
@@ -25,7 +27,9 @@ import qualified Lorentz.Contracts.STKR.Client as STKR
 import Parser
   (CliCommand(..), DeployOptions(..), LocalCommand(..), NewCouncilOptions(..),
   NewProposalOptions(..), RemoteAction(..), RemoteCommand(..), TzEnvConfig(..),
-  ViaMultisigOptions(..), VoteForProposalOptions(..), cmdParser)
+  ViaMultisigOptions(..), VoteForProposalOptions(..), GetBalanceOptions(..),
+  GetTotalSupplyOptions (..), TransferOptions (..), SetSuccessorOptions (..),
+  WithdrawOptions (..), cmdParser)
 
 main :: IO ()
 main = do
@@ -47,13 +51,14 @@ localCmdRunner = \case
       maybe putStrLn writeFileUtf8 out $
       L.printLorentzContract False (STKR.stkrContract tc)
 
-callViaMultisig
-  :: STKR.OpsTeamEntrypointParam -> ViaMultisigOptions -> TzTest ()
-callViaMultisig stkrParam ViaMultisigOptions {..} = do
+withMultisigOptions ::
+  (Client.ViaMultisigOptions -> TzTest ())
+   -> ViaMultisigOptions -> TzTest ()
+withMultisigOptions f ViaMultisigOptions {..} = do
   fromAddr <- Tz.resolve' Tz.AddressAlias vmoFrom
   msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
   stkrAddr <- Tz.resolve' Tz.ContractAlias vmoStkr
-  Client.callViaMultisig stkrParam $ Client.ViaMultisigOptions
+  f $ Client.ViaMultisigOptions
     { vmoFrom = fromAddr
     , vmoMsig = msigAddr
     , vmoStkr = stkrAddr
@@ -62,6 +67,10 @@ callViaMultisig stkrParam ViaMultisigOptions {..} = do
         mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
     , ..
     }
+
+callViaMultisig
+  :: STKR.OpsTeamEntrypointParam -> ViaMultisigOptions -> TzTest ()
+callViaMultisig p = withMultisigOptions (Client.callViaMultisig p)
 
 remoteCmdRunner :: RemoteCommand -> TzTest ()
 remoteCmdRunner = \case
@@ -105,3 +114,24 @@ remoteCmdRunner = \case
   PrintStorage addr_ ->
     Tz.resolve' Tz.ContractAlias addr_ >>=
     STKR.getStorage >>= liftIO . T.putStrLn . pretty
+  GetBalance GetBalanceOptions {..} -> do
+    -- fromAddr <- Tz.resolve' Tz.AddressAlias gbFrom -- use getStorage API ATM
+    stkrAddr <- Tz.resolve' Tz.ContractAlias gbStkr
+    whoseAddr <- Tz.resolve' Tz.AddressAlias gbWhose
+    Client.getBalance stkrAddr whoseAddr
+  GetTotalSupply GetTotalSupplyOptions {..} -> do
+    -- fromAddr <- Tz.resolve' Tz.AddressAlias gbFrom -- use getStorage API ATM
+    stkrAddr <- Tz.resolve' Tz.ContractAlias gtsStkr
+    Client.getTotalSupply stkrAddr
+  Transfer TransferOptions {..} -> do
+    tFromAddr <- Tz.resolve' Tz.AddressAlias tFrom
+    tToAddr <- Tz.resolve' Tz.AddressAlias tTo
+    callViaMultisig (STKR.Transfer (#from .! tFromAddr, #to .! tToAddr, #value .! tVal)) tViaMultisig
+  Freeze msigOptions -> callViaMultisig (STKR.Freeze ()) msigOptions
+  SetSuccessor SetSuccessorOptions {..} -> do
+    ssSuccAddr <- Tz.resolve' Tz.ContractAlias ssSucc
+    withMultisigOptions (Client.setSuccessor ssSuccAddr) ssViaMultisig
+  Withdraw WithdrawOptions {..} -> do
+    wFromAddr <- Tz.resolve' Tz.AddressAlias wFrom
+    -- FIXME??? We use `unsafeMkMutez` which throws instead of manual handling of `Nothing`
+    withMultisigOptions (Client.withdraw wFromAddr $ unsafeMkMutez wAmount) wViaMultisig

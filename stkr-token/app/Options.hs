@@ -24,10 +24,14 @@ module Options
 
   , proposalIdOption
   , epochOption
+
+  , valueOption
+  , amountOption
   ) where
 
 import Prelude
 
+import Data.Word (Word64) -- FIXME!!! derive Read for Mutez in Morley
 import qualified Data.Text as T
 import qualified Data.Set as S
 import qualified Options.Applicative as Opt
@@ -205,4 +209,16 @@ epochOption :: Opt.Parser Natural
 epochOption = Opt.option Opt.auto $
   Opt.long "epoch" <> Opt.short 'e'
     <> Opt.help "Epoch in which a proposal to vote was created"
+    <> Opt.metavar "INT"
+
+valueOption :: Opt.Parser Natural
+valueOption = Opt.option Opt.auto $
+  Opt.long "value" <> Opt.short 'v'
+    <> Opt.help "Value to transfer"
+    <> Opt.metavar "INT"
+
+amountOption :: Opt.Parser Word64
+amountOption = Opt.option Opt.auto $
+  Opt.long "amount" <> Opt.short 'a'
+    <> Opt.help "Amount to withdraw"
     <> Opt.metavar "INT"

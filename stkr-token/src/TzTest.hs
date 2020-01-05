@@ -21,6 +21,7 @@ module TzTest
   , getChainId
   , getMainChainId
   , getHeadTimestamp
+  , getElementTextOfBigMapByAddress
 
   , resolve
   , resolve'
@@ -327,6 +328,7 @@ getStorage addr = do
     ["get", "contract", "storage", "for", formatAddress addr]
   either (fail . pretty) pure $
     parseLorentzValue @st output
+
 stripQuotes :: Text -> Text
 stripQuotes = T.dropAround (== '"') . T.strip
 
@@ -346,3 +348,21 @@ getHeadTimestamp = do
   output <- exec False $ ["get", "timestamp"]
   maybe (fail "Failed to parse timestamp") pure $
     parseTimestamp . T.strip $ output
+
+hashAddressToScriptExpression :: Address -> TzTest Text
+hashAddressToScriptExpression addr =
+  T.strip . lineWithPrefix "Script-expression-ID-Hash: " <$>
+     exec False ["hash", "data", "\"" <> formatAddress addr <> "\"", "of", "type", "address"]
+
+-- NOTE: We don't try to interpret tezos client output,
+--   we simply present it to the user.
+getElementTextOfBigMapByHash
+  :: Text -> Natural -> TzTest Text
+getElementTextOfBigMapByHash thash bigMapId = do
+  T.strip <$>
+     exec True ["get", "element", thash, "of", "big", "map", show bigMapId]
+
+getElementTextOfBigMapByAddress
+  :: Address -> Natural -> TzTest Text
+getElementTextOfBigMapByAddress addr bigMapId =
+  hashAddressToScriptExpression addr >>= (`getElementTextOfBigMapByHash` bigMapId)

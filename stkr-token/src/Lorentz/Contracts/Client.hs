@@ -1,3 +1,5 @@
+{-# LANGUAGE NoRebindableSyntax #-}
+
 module Lorentz.Contracts.Client
   ( DeployOptions (..)
   , deploy
@@ -9,6 +11,10 @@ module Lorentz.Contracts.Client
   , callViaMultisig
   , VoteForProposalOptions (..)
   , voteForProposal
+  , getTotalSupply
+  , getBalance
+  , setSuccessor
+  , withdraw
   ) where
 
 import Prelude
@@ -16,6 +22,7 @@ import Prelude
 import Fmt (Buildable(..), Builder, mapF)
 import Named (arg)
 
+import Lorentz.Value (toContractRef, Mutez)
 import Lorentz.Constraints (NicePackedValue)
 import Lorentz.Pack (lPackValue)
 import Tezos.Address (Address)
@@ -84,10 +91,12 @@ signBytes
 signBytes sk bytes =
   (toPublic sk, sign sk bytes)
 
-callViaMultisig
-  :: STKR.OpsTeamEntrypointParam -> ViaMultisigOptions -> TzTest ()
-callViaMultisig stkrParam ViaMultisigOptions {..} = do
-  let order = Msig.mkCallOrderWrap @STKR.Parameter (Msig.Unsafe vmoStkr) #cOpsTeamEntrypoint (STKR.EnsureOwner stkrParam)
+callViaMultisigGeneric
+  :: forall cName it.
+  Msig.TransferOrderWrapC STKR.Parameter cName (STKR.EnsureOwner it)
+  => Msig.Label cName -> it -> ViaMultisigOptions -> TzTest ()
+callViaMultisigGeneric label stkrParam ViaMultisigOptions {..} = do
+  let order = Msig.mkCallOrderWrap @STKR.Parameter (Msig.Unsafe vmoStkr) label (STKR.EnsureOwner stkrParam)
   let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage vmoMsig
   nonce <- maybe getNonce pure vmoNonce
   let toSign = Msig.ValueToSign vmoMsig nonce order
@@ -96,6 +105,10 @@ callViaMultisig stkrParam ViaMultisigOptions {..} = do
   let param = Msig.Parameter order nonce pkSigs
   Tz.call vmoFrom vmoMsig param
 
+callViaMultisig
+  :: STKR.OpsTeamEntrypointParam -> ViaMultisigOptions -> TzTest ()
+callViaMultisig = callViaMultisigGeneric #cOpsTeamEntrypoint
+
 data ViaMultisigOptions = ViaMultisigOptions
   { vmoMsig :: Address
   , vmoStkr :: Address
@@ -103,6 +116,20 @@ data ViaMultisigOptions = ViaMultisigOptions
   , vmoSign :: ByteString -> TzTest [(PublicKey, Signature)]
   , vmoNonce :: Maybe Natural
   }
+
+callOnFrozen
+  :: STKR.PermitOnFrozenParam -> ViaMultisigOptions -> TzTest ()
+callOnFrozen = callViaMultisigGeneric #cPermitOnFrozen
+
+setSuccessor
+  :: Address -> ViaMultisigOptions -> TzTest ()
+setSuccessor newStkrAddr = callOnFrozen $
+  STKR.SetSuccessor $ #successor $ STKR.successorLambda (toContractRef newStkrAddr)
+
+withdraw
+   :: Address -> Mutez -> ViaMultisigOptions -> TzTest ()
+withdraw toAddr amount = callOnFrozen $
+  STKR.Withdraw (#to toAddr, #amount amount)
 
 data VoteForProposalOptions = VoteForProposalOptions
   { vpStkr :: Address
@@ -125,3 +152,32 @@ voteForProposal VoteForProposalOptions {..} = do
     $ STKR.PublicEntrypoint
     . STKR.VoteForProposal
     $ (#proposalId vpProposalId, #votePk pk, #voteSig sig)
+
+-- We dont' bother with getBalance/getTotalSupply entrypoints ATM, simply use
+--   getStorage primitive, and return necessary values immediately.
+-- Quick and dirty, we introduce no custom error type, supply error
+--   messages directly.
+
+withGetStorage :: (STKR.AlmostStorage -> TzTest ()) -> String -> Address -> TzTest ()
+withGetStorage f partname stkr = do
+  st@STKR.AlmostStorage{..} <- STKR.getStorage stkr
+  if isNothing successor
+    then f st
+    else fail upgradedError
+  where
+    upgradedError =
+        "STKR contract is upgraded, please use " ++ partname
+         ++ " entrypoint instead of getStorage API."
+
+getTotalSupply :: Address -> TzTest ()
+getTotalSupply =
+  withGetStorage
+    (\STKR.AlmostStorage{..} -> putTextLn $ "Total supply: " <> show totalSupply)
+      "getTotalSupply"
+
+getBalance :: Address -> Address -> TzTest ()
+getBalance stkr whose = withGetStorage f "getBalance" stkr
+  where
+    f STKR.AlmostStorage{..} = do
+        balance <- Tz.getElementTextOfBigMapByAddress whose ledger
+        putTextLn $ "Balance: " <> balance

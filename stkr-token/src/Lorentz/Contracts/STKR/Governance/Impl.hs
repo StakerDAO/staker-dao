@@ -17,7 +17,7 @@ newCouncil :: GetCurrentStage -> Entrypoint (Set KeyHash) Storage
 newCouncil curStage = do
   dip $ do
     updateStorage curStage
-    dup # checkNotStages [3, 4]
+    dup # checkNotStages [2, 3]
   setField #councilKeys
   nil; pair
 

@@ -316,15 +316,12 @@ importSecretKey alias sk = do
   let addrStr = words output ^. ix 3
   either (fail . pretty) pure (parseAddress addrStr)
 
--- FIXME? Move to Morley?
-type Parsable t =
-  ( IsoValue t
-  , SingI (ToT t)
-  , Typeable (ToT t)
-  )
-
 getStorage
-  :: forall st. Parsable st
+  :: forall st.
+  ( IsoValue st
+  , SingI (ToT st)
+  , Typeable (ToT st)
+  )
   => Address -> TzTest st
 getStorage addr = do
   output <- exec False $

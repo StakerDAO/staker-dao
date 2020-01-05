@@ -22,7 +22,6 @@ module TzTest
   , getMainChainId
   , getHeadTimestamp
   , getElementTextOfBigMapByAddress
-  , getElementOfBigMapByAddress
 
   , resolve
   , resolve'
@@ -358,30 +357,15 @@ hashAddressToScriptExpression addr =
   T.strip . lineWithPrefix "Script-expression-ID-Hash: " <$>
      exec False ["hash", "data", "\"" <> formatAddress addr <> "\"", "of", "type", "address"]
 
+-- NOTE: We don't try to interpret tezos client output,
+--   we simply present it to the user.
 getElementTextOfBigMapByHash
   :: Text -> Natural -> TzTest Text
 getElementTextOfBigMapByHash thash bigMapId = do
-  -- FIXME??? I haven't tested it (it fails) and don't yet know what the output
-  --   should be prefixed with (if any), so I assume empty prefix ATM.
-  -- FIXME!!! Handle "Error:\n  Did not find service:"
-  T.strip . lineWithPrefix "" <$>
+  T.strip <$>
      exec True ["get", "element", thash, "of", "big", "map", show bigMapId]
-
-getElementOfBigMapByHash
-  :: forall e. Parsable e
-  => Text -> Natural -> TzTest e
-getElementOfBigMapByHash thash bigMapId = do
-  eltext <- getElementTextOfBigMapByHash thash bigMapId
-  either (fail . pretty) pure $
-    parseLorentzValue @e eltext
 
 getElementTextOfBigMapByAddress
   :: Address -> Natural -> TzTest Text
 getElementTextOfBigMapByAddress addr bigMapId =
   hashAddressToScriptExpression addr >>= (`getElementTextOfBigMapByHash` bigMapId)
-
-getElementOfBigMapByAddress
-  :: forall e. Parsable e
-  => Address -> Natural -> TzTest e
-getElementOfBigMapByAddress addr bigMapId =
-  hashAddressToScriptExpression addr >>= (`getElementOfBigMapByHash` bigMapId)

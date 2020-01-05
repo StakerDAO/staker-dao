@@ -183,13 +183,3 @@ getBalance stkr whose = withGetStorage f "getBalance" stkr
     f STKR.AlmostStorage{..} = do
         balance <- Tz.getElementTextOfBigMapByAddress whose ledger
         putTextLn $ "Balance: " <> balance
-
-{-
--- We have no `callback_ref` defined ATM
-callGetBalance :: Address -> Address -> Address -> TzTest ()
-callGetBalance stkr who whose =
-  Tz.call who stkr
-    $ STKR.PublicEntrypoint
-    . STKR.GetBalance
-    $ mkView (#owner .! whose) callback_ref
--}

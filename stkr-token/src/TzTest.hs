@@ -351,7 +351,7 @@ getHeadTimestamp = do
 
 hashAddressToScriptExpression :: Address -> TzTest Text
 hashAddressToScriptExpression addr =
-  T.strip . lineWithPrefix "Script-expression-ID-Hash: " <$>
+  T.strip . lineWithPrefix "Hash: " <$>
      exec False ["hash", "data", "\"" <> formatAddress addr <> "\"", "of", "type", "address"]
 
 -- NOTE: We don't try to interpret tezos client output,
@@ -360,7 +360,7 @@ getElementTextOfBigMapByHash
   :: Text -> Natural -> TzTest Text
 getElementTextOfBigMapByHash thash bigMapId = do
   T.strip <$>
-     exec True ["get", "element", thash, "of", "big", "map", show bigMapId]
+     exec False ["get", "element", thash, "of", "big", "map", show bigMapId]
 
 getElementTextOfBigMapByAddress
   :: Address -> Natural -> TzTest Text

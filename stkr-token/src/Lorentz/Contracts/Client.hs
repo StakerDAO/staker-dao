@@ -22,8 +22,6 @@ import Prelude
 import Fmt (Buildable(..), Builder, mapF)
 import Named (arg)
 
--- import Lorentz (mkView)
--- import Util.Named ((.!))
 import Lorentz.Value (toContractRef, Mutez)
 import Lorentz.Constraints (NicePackedValue)
 import Lorentz.Pack (lPackValue)

@@ -12,11 +12,14 @@ module Parser
   , GetBalanceOptions (..)
   , GetTotalSupplyOptions (..)
   , TransferOptions (..)
+  , SetSuccessorOptions (..)
+  , WithdrawOptions (..)
   , cmdParser
   ) where
 
 import Prelude
 
+import Data.Word (Word64) -- FIXME!!! Mutez has noe Read intsance, fix Morley!!!
 import Options.Applicative (command, helper, info, progDesc)
 import qualified Options.Applicative as Opt
 
@@ -50,6 +53,8 @@ data RemoteCommand
   | GetTotalSupply GetTotalSupplyOptions
   | Transfer TransferOptions
   | Freeze ViaMultisigOptions
+  | SetSuccessor SetSuccessorOptions
+  | Withdraw WithdrawOptions
 
 data NewCouncilOptions = NewCouncilOptions
   { ncViaMultisig :: ViaMultisigOptions
@@ -61,6 +66,17 @@ data TransferOptions = TransferOptions
   , tFrom :: OrAlias Address
   , tTo :: OrAlias Address
   , tVal :: Natural
+  }
+
+data SetSuccessorOptions = SetSuccessorOptions
+  { ssViaMultisig :: ViaMultisigOptions
+  , ssSucc :: OrAlias Address
+  }
+
+data WithdrawOptions = WithdrawOptions
+  { wViaMultisig :: ViaMultisigOptions
+  , wFrom :: OrAlias Address
+  , wAmount :: Word64
   }
 
 data GetBalanceOptions = GetBalanceOptions
@@ -148,6 +164,8 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
         , getTotalSupplySubprs
         , transferSubprs
         , freezeSubprs
+        , setSuccessorSubprs
+        , withdrawSubprs
         ]
 
     printMsigSubprs = mkCmdPrs "print-multisig" "Print multisig contract" $
@@ -226,3 +244,18 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
 
     freezeSubprs = mkRemoteCmdPrs "freeze" "Freeze the contract" $
       Freeze <$> viaMultisigOptions
+
+    setSuccessorSubprs = mkRemoteCmdPrs "set-successor-stkr" "Set the successor of STKR contract" $
+      SetSuccessor <$>
+        (SetSuccessorOptions
+          <$> viaMultisigOptions
+          <*> addrOrAliasOption "succ"
+        )
+
+    withdrawSubprs = mkRemoteCmdPrs "withdraw" "Withdraw funds from frozen STKR contract" $
+      Withdraw <$>
+        (WithdrawOptions
+          <$> viaMultisigOptions
+          <*> addrOrAliasOption "from"
+          <*> amountOption
+        )

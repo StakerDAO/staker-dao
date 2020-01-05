@@ -167,18 +167,26 @@ remoteCmdRunner = \case
   GetBalance GetBalanceOptions {..} -> do
     -- fromAddr <- Tz.resolve' Tz.AddressAlias gbFrom -- use getStorage API ATM
     stkrAddr <- Tz.resolve' Tz.ContractAlias gbStkr
-    whoseAddr <- Tz.resolve' Tz.AddressAlias gbWhose
-    Client.getBalance stkrAddr whoseAddr
+    whose <-
+      case (gbWhose, gbUseReservoir) of
+        (Nothing, True) -> pure STKR.reservoirAddr
+        (Just payer, False) -> Tz.resolve' Tz.AddressAlias payer
+        _ -> fail "Either --reservoir or --addr <addr> should be specified"
+    Client.getBalance stkrAddr whose
   GetTotalSupply GetTotalSupplyOptions {..} -> do
     -- fromAddr <- Tz.resolve' Tz.AddressAlias gbFrom -- use getStorage API ATM
     stkrAddr <- Tz.resolve' Tz.ContractAlias gtsStkr
     Client.getTotalSupply stkrAddr
   Transfer TransferOptions {..} -> do
-    tFromAddr <- Tz.resolve' Tz.AddressAlias tFrom
-    tToAddr <- Tz.resolve' Tz.AddressAlias tTo
+    from <-
+      case (tPayer, tUseReservoir) of
+        (Nothing, True) -> pure STKR.reservoirAddr
+        (Just payer, False) -> Tz.resolve' Tz.AddressAlias payer
+        _ -> fail "Either --reservoir or --payer <addr> should be specified"
+    to <- Tz.resolve' Tz.AddressAlias tReceiver
     let param = STKR.Transfer
-                  ( #from .! tFromAddr
-                  , #to .! tToAddr
+                  ( #from .! from
+                  , #to .! to
                   , #value .! tVal )
     handleOpsMultisig tPrintSigs tStkr param tViaMultisig
   Freeze FreezeOptions {..} ->
@@ -189,7 +197,7 @@ remoteCmdRunner = \case
                   STKR.successorLambda (toContractRef newStkrAddr)
     handleFrozenMultisig ssPrintSigs ssStkr param ssViaMultisig
   Withdraw WithdrawOptions {..} -> do
-    toAddr <- Tz.resolve' Tz.AddressAlias wTo
+    toAddr <- Tz.resolve' Tz.AddressAlias wReceiver
     -- FIXME??? We use `unsafeMkMutez` which throws instead of manual handling of `Nothing`
     let param = STKR.Withdraw (#to toAddr, #amount (unsafeMkMutez wAmount))
     handleFrozenMultisig wPrintSigs wStkr param wViaMultisig

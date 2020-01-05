@@ -76,8 +76,9 @@ data TransferOptions = TransferOptions
   { tViaMultisig :: ViaMultisigOptions
   , tStkr :: OrAlias Address
   , tPrintSigs :: Bool
-  , tFrom :: OrAlias Address
-  , tTo :: OrAlias Address
+  , tPayer :: Maybe (OrAlias Address)
+  , tUseReservoir :: Bool
+  , tReceiver :: OrAlias Address
   , tVal :: Natural
   }
 
@@ -98,14 +99,15 @@ data WithdrawOptions = WithdrawOptions
   { wViaMultisig :: ViaMultisigOptions
   , wStkr :: OrAlias Address
   , wPrintSigs :: Bool
-  , wTo :: OrAlias Address
+  , wReceiver :: OrAlias Address
   , wAmount :: Word64
   }
 
 data GetBalanceOptions = GetBalanceOptions
   { gbStkr :: OrAlias Address
   -- , gbFrom :: OrAlias Address -- use getStorage API ATM
-  , gbWhose :: OrAlias Address
+  , gbWhose :: Maybe (OrAlias Address)
+  , gbUseReservoir :: Bool
   }
 
 data GetTotalSupplyOptions = GetTotalSupplyOptions
@@ -256,15 +258,16 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
     printStorageSubprs = mkRemoteCmdPrs "print-storage" "Print storage of a contract" $
       PrintStorage <$> addrOrAliasOption "contract"
 
-    getBalanceSubprs = mkRemoteCmdPrs "get-balance-stkr" "Get balance of a STKR token address" $
+    getBalanceSubprs = mkRemoteCmdPrs "get-balance" "Get balance of a STKR token address" $
       GetBalance <$>
         (GetBalanceOptions
           <$> addrOrAliasOption "stkr"
           -- <*> addrOrAliasOption "from" -- use getStorage API ATM
-          <*> addrOrAliasOption "whose"
+          <*> optional (addrOrAliasOption "addr")
+          <*> reservoirOption
         )
 
-    getTotalSupplySubprs = mkRemoteCmdPrs "get-total-stkr" "Get total supply of STKR" $
+    getTotalSupplySubprs = mkRemoteCmdPrs "total-supply" "Get total supply of STKR" $
       GetTotalSupply <$>
         (GetTotalSupplyOptions
           <$> addrOrAliasOption "stkr"
@@ -277,8 +280,9 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
           <$> viaMultisigOptions
           <*> addrOrAliasOption "stkr"
           <*> printSigsOnlyOption
-          <*> addrOrAliasOption "from"
-          <*> addrOrAliasOption "to"
+          <*> optional (addrOrAliasOption "payer")
+          <*> reservoirOption
+          <*> addrOrAliasOption "receiver"
           <*> valueOption
         )
 
@@ -290,7 +294,7 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
           <*> printSigsOnlyOption
         )
 
-    setSuccessorSubprs = mkRemoteCmdPrs "set-successor-stkr" "Set the successor of STKR contract" $
+    setSuccessorSubprs = mkRemoteCmdPrs "set-successor" "Set the successor of STKR contract" $
       SetSuccessor <$>
         (SetSuccessorOptions
           <$> viaMultisigOptions

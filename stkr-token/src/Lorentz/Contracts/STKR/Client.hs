@@ -7,6 +7,7 @@ module Lorentz.Contracts.STKR.Client
 
   , AlmostStorage(..)
   , getStorage
+  , reservoirAddr
   ) where
 
 import Prelude

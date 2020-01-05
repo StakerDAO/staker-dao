@@ -21,6 +21,7 @@ module Options
   , nonceOption
   , timeConfigOption
   , councilOption
+  , reservoirOption
 
   , totalSupplyOption
   , proposalIdOption
@@ -180,6 +181,12 @@ timeConfigOption = test <|> prod
       const TestTC
         <$> Opt.switch (Opt.long "test" <> Opt.help "Run in test mode")
         <*> startOption <*> durationOption
+
+reservoirOption :: Opt.Parser Bool
+reservoirOption =
+  Opt.switch (
+    Opt.long "reservoir" <>
+    Opt.help "Use reservoir address as payer")
 
 councilOption :: Opt.Parser (Either (Text, Int) (Set KeyHash))
 councilOption = Left <$> genKeys <|> Right <$> readKeys

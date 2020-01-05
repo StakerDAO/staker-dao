@@ -8,12 +8,14 @@ import qualified Data.Set as S
 import Fmt (listF, (+|), (|+))
 import Lorentz (fromContractAddr)
 import Lorentz.Test
+import Michelson.Test.Dummy (dummyNow)
 import Test.Hspec (Spec, it)
-import Tezos.Crypto (hashKey)
+import Tezos.Core (timestampPlusSeconds)
+import Tezos.Crypto (detSecretKey, hashKey, toPublic)
 
 import qualified Lorentz.Contracts.STKR as STKR
 
-import Test.Lorentz.Contracts.STKR.Common (callWithMultisig, newKeypair, originateWithEmptyLedger)
+import Test.Lorentz.Contracts.STKR.Common (callWithMultisig, originateWithEmptyLedger)
 
 
 spec_NewCouncil :: Spec
@@ -21,18 +23,12 @@ spec_NewCouncil = newCouncilSpec
 
 newCouncilSpec :: Spec
 newCouncilSpec = do
-  let (sk1, pk1) = newKeypair "1"
-  let (sk2, pk2) = newKeypair "2"
-  let (sk3, pk3) = newKeypair "3"
-  let (sk4, pk4) = newKeypair "4"
-  let (sk5, pk5) = newKeypair "5"
-  let (_, pk6) = newKeypair "6"
-  let (_, pk7) = newKeypair "7"
+  let teamSks = detSecretKey <$> ["1", "2", "3", "4", "5"]
+  let teamPks = toPublic <$> teamSks
+  let newCouncilKeys = S.fromList $ (hashKey . toPublic . detSecretKey) <$> ["6", "7"]
+
   it "updates council keys if called via multisig" $
     integrationalTestExpectation $ do
-      let teamPks = [pk1, pk2, pk3, pk4, pk5]
-      let teamSks = [sk1, sk2, sk3, sk4, sk5]
-      let newCouncilKeys = S.fromList [hashKey pk6, hashKey pk7]
       (msig, stkr) <- originateWithEmptyLedger teamPks []
 
       callWithMultisig msig 1 teamSks stkr $ STKR.NewCouncil newCouncilKeys
@@ -44,10 +40,28 @@ newCouncilSpec = do
                "Expected " +| listF newCouncilKeys |+
                ", but got " +| listF (STKR.councilKeys storage) |+ ""
 
+  it "fails to update council keys if called on stage 3" $
+    integrationalTestExpectation $ do
+      (msig, stkr) <- originateWithEmptyLedger teamPks []
+      waitForStage 2  -- Stage numbering starts from zero
+
+      callWithMultisig msig 1 teamSks stkr $ STKR.NewCouncil newCouncilKeys
+
+      validate . Left $
+        lExpectCustomError #wrongStage (#stageCounter 2)
+
+  it "fails to update council keys if called on stage 4" $
+    integrationalTestExpectation $ do
+      (msig, stkr) <- originateWithEmptyLedger teamPks []
+      waitForStage 3  -- Stage numbering starts from zero
+
+      callWithMultisig msig 1 teamSks stkr $ STKR.NewCouncil newCouncilKeys
+
+      validate . Left $
+        lExpectCustomError #wrongStage (#stageCounter 3)
+
   it "fails if called directly" $
     integrationalTestExpectation $ do
-      let teamPks = [pk1, pk2, pk3, pk4, pk5]
-      let newCouncilKeys = S.fromList [hashKey pk6, hashKey pk7]
       (msig, stkr) <- originateWithEmptyLedger teamPks []
 
       lCall stkr $
@@ -56,3 +70,6 @@ newCouncilSpec = do
         STKR.NewCouncil $ newCouncilKeys
       validate . Left $
         lExpectCustomError #senderCheckFailed (fromContractAddr msig)
+
+  where
+    waitForStage n = setNow $ timestampPlusSeconds dummyNow n

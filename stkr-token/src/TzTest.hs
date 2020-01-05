@@ -351,7 +351,7 @@ getHeadTimestamp = do
 
 hashAddressToScriptExpression :: Address -> TzTest Text
 hashAddressToScriptExpression addr =
-  T.strip . lineWithPrefix "Hash: " <$>
+  T.strip . lineWithPrefix "Script-expression-ID-Hash: " <$>
      exec False ["hash", "data", "\"" <> formatAddress addr <> "\"", "of", "type", "address"]
 
 -- NOTE: We don't try to interpret tezos client output,

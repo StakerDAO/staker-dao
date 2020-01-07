@@ -399,4 +399,4 @@ getElementTextOfBigMapByHash thash bigMapId = do
 getElementTextOfBigMapByAddress
   :: Address -> Natural -> TzTest Text
 getElementTextOfBigMapByAddress =
-   getElementTextOfBigMapByHash . hashAddressToScriptExpression
+  getElementTextOfBigMapByHash . hashAddressToScriptExpression

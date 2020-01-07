@@ -51,7 +51,7 @@ import qualified Crypto.Error as CE
 import qualified Crypto.PubKey.Ed25519 as Ed25519
 import Lorentz
   (Contract, NicePrintedValue, NiceStorage, ParameterEntryPoints,
-  parseLorentzValue)
+  parseLorentzValue, lPackValue)
 import Lorentz.Print (printLorentzContract, printLorentzValue)
 import Michelson.Typed (IsoValue, ToT)
 import Tezos.Address (Address, formatAddress, parseAddress)
@@ -59,7 +59,7 @@ import Tezos.Core
   (ChainId, Mutez, Timestamp, parseChainId, parseTimestamp, unsafeMkMutez)
 import Tezos.Crypto
   (KeyHash, PublicKey(..), SecretKey, Signature(..), blake2b, formatSecretKey,
-  parseKeyHash, parsePublicKey, parseSecretKey, sign, toPublic)
+  parseKeyHash, parsePublicKey, parseSecretKey, sign, toPublic, encodeBase58Check)
 
 import Data.Maybe (fromJust)
 import System.Console.Haskeline (defaultSettings, getPassword, runInputT)
@@ -349,10 +349,14 @@ getHeadTimestamp = do
   maybe (fail "Failed to parse timestamp") pure $
     parseTimestamp . T.strip $ output
 
-hashAddressToScriptExpression :: Address -> TzTest Text
-hashAddressToScriptExpression addr =
-  T.strip . lineWithPrefix "Script-expression-ID-Hash: " <$>
-     exec False ["hash", "data", "\"" <> formatAddress addr <> "\"", "of", "type", "address"]
+hashAddressToScriptExpression :: Address -> Text
+hashAddressToScriptExpression =
+    encodeBase58Check
+    -- `script_expr_hash` (`b58check_prefix`) from Tezos sources, see
+    -- src/proto_005_PsBabyM1/lib_protocol/script_expr_hash.ml
+  . ("\013\044\064\027" <>)
+  . blake2b
+  . lPackValue
 
 -- NOTE: We don't try to interpret tezos client output,
 --   we simply present it to the user.
@@ -360,9 +364,9 @@ getElementTextOfBigMapByHash
   :: Text -> Natural -> TzTest Text
 getElementTextOfBigMapByHash thash bigMapId = do
   T.strip <$>
-     exec False ["get", "element", thash, "of", "big", "map", show bigMapId]
+     exec {-True-} False ["get", "element", thash, "of", "big", "map", show bigMapId]
 
 getElementTextOfBigMapByAddress
   :: Address -> Natural -> TzTest Text
-getElementTextOfBigMapByAddress addr bigMapId =
-  hashAddressToScriptExpression addr >>= (`getElementTextOfBigMapByHash` bigMapId)
+getElementTextOfBigMapByAddress =
+   getElementTextOfBigMapByHash . hashAddressToScriptExpression

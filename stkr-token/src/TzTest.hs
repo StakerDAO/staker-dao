@@ -82,49 +82,73 @@ type TzTest a = ReaderT Env IO a
 runTzTest :: TzTest a -> Env -> IO a
 runTzTest = runReaderT
 
-exec :: Bool -> [Text] -> TzTest Text
-exec forwardToStdout args =
-  execWithShell forwardToStdout args id
+-- Flattened
+data Verbosity =
+    Silent
+  | ShowStdOut
+  | ShowStdErr
+  | ShowBoth
+  deriving Eq
+
+exec :: Verbosity -> [Text] -> TzTest (Text, Text)
+exec verbosity args =
+  execWithShell verbosity args id
+
+execSilentWithStdout :: [Text] -> TzTest Text
+execSilentWithStdout args = fst <$> exec Silent args
+
+execSilent :: [Text] -> TzTest ()
+execSilent = void . exec Silent
 
 -- For this to work well, you SHALL link with `threaded` RTS!!!
--- Stdin, and stderr are inherited!
-callProcessWithReadStdout
-  :: Bool
+-- Stdin is inherited!
+callProcessWithReadStd
+  :: Verbosity
   -> FilePath
   -> [String]
   -> Maybe [(String, String)]
-  -> IO (ExitCode, String)
-callProcessWithReadStdout forwardToStdout cmd args penv = do
-  bufMode <- hGetBuffering stdout
+  -> IO (ExitCode, String, String)
+callProcessWithReadStd verbosity cmd args penv = do
+  oBufMode <- hGetBuffering stdout
+  eBufMode <- hGetBuffering stderr
   hSetBuffering stdout NoBuffering
-  (_, Just hout, _, p) <- createProcess $ (proc cmd args) {env = penv, std_out = CreatePipe, delegate_ctlc = True}
+  (_, Just hout, Just herr, p) <-
+    createProcess $ (proc cmd args) { env = penv
+                                    , std_out = CreatePipe
+                                    , std_err = CreatePipe
+                                    , delegate_ctlc = True}
+
+  let
+    geth h ho cref v = do
+      ec <- E.try @E.IOException (hGetContents h)
+      case ec of
+        Right c -> do
+          modifyIORef cref (. (++ c))
+          if verbosity == ShowBoth || verbosity == v
+            then System.IO.hPutStr ho c
+            else pure ()
+          geth h ho cref v
+        _ -> pure ()
+  --
   outref <- newIORef id
-  -- NOTE: do we need this with `-threaded`?
-  fin <- newEmptyMVar
-  let getout = do
-        ec <- E.try @E.IOException (hGetContents hout)
-        case ec of
-          Right c -> do
-            modifyIORef outref (. (++ c))
-            if forwardToStdout
-            then System.IO.hPutStr stdout c
-            else pass
-            getout
-          _ -> putMVar fin ()
-  t <- forkIO getout
+  errref <- newIORef id
+  to <- forkIO $ geth hout stdout outref ShowStdOut
+  te <- forkIO $ geth herr stderr errref ShowStdErr
   ec <- waitForProcess p
-  () <- readMVar fin
-  killThread t
-  hSetBuffering stdout bufMode
-  ds <- readIORef outref
-  pure (ec, ds [])
+  killThread to
+  killThread te
+  hSetBuffering stdout oBufMode
+  hSetBuffering stderr eBufMode
+  outs <- readIORef outref
+  errs <- readIORef errref
+  pure (ec, outs [], errs [])
 
 execWithShell
-  :: Bool
+  :: Verbosity
   -> [Text]
-  -> (IO String -> IO String)
-  -> TzTest Text
-execWithShell forwardToStdout args shellTransform = do
+  -> (IO (String, String) -> IO (String, String))
+  -> TzTest (Text, Text)
+execWithShell verbosity args shellTransform = do
   Env{..} <- ask
   let outputShell = do
         let allargs =
@@ -134,15 +158,15 @@ execWithShell forwardToStdout args shellTransform = do
         -- putTextLn $ "EXEC!: " <> envTezosClientCmd <> " " <> T.intercalate " " allargs
         e <- getEnvironment
         -- Ignore exit code ATM
-        (_r, o) <-
-          callProcessWithReadStdout
-            forwardToStdout
+        (_r, o, err) <-
+          callProcessWithReadStd
+            verbosity
             (T.unpack envTezosClientCmd)
             (map T.unpack allargs)
             (Just $ modenv e)
         -- putStr $ "RECV!: " ++ o
-        return o
-  liftIO $ T.pack <$> shellTransform outputShell
+        return (o, err)
+  liftIO $ bimap T.pack T.pack <$> shellTransform outputShell
   where
     modenv e = ("TEZOS_CLIENT_UNSAFE_DISABLE_DISCLAIMER", "YES") : e
 
@@ -158,14 +182,13 @@ transfer
   :: NicePrintedValue a
   => TransferP a -> TzTest ()
 transfer TransferP{..} = do
-  exec False $
+  execSilent $
     [ "transfer", pretty tpQty
     , "from", formatAddress tpSrc
     , "to", formatAddress tpDst
     , "--burn-cap", show tpBurnCap
     , "--arg", toStrict $ printLorentzValue True tpArgument
     ]
-  pure ()
 
 call
   :: NicePrintedValue p
@@ -210,7 +233,9 @@ originateContract OriginateContractP{..} = do
         , "--burn-cap", show ocpBurnCap
         ]
   addrString <- fromMaybe "" . safeHead . words . T.strip .
-                lineWithPrefix "New contract " <$> exec False cmdArgs
+                -- we show tezos-client output since it may ask
+                -- to supply passwords for encrypted keys
+                lineWithPrefix "New contract " . fst <$> exec ShowStdOut cmdArgs
   -- Ex: New contract KT1MNzB6r9eFiYtFbhnRUgnuC83vwSUqERWG originated.
   either (fail . pretty) pure $ parseAddress addrString
 
@@ -245,7 +270,7 @@ mySignPK skBytes bytes = (PublicKey pk, Signature . Ed25519.sign sk pk . blake2b
 generateSigPK
   :: Text -> ByteString -> TzTest (PublicKey, Signature)
 generateSigPK alias bytes = do
-  tzsk <- T.strip . lineWithPrefix "Secret Key: " <$> exec False ["show","address", alias, "-S"]
+  tzsk <- T.strip . lineWithPrefix "Secret Key: " <$> execSilentWithStdout ["show","address", alias, "-S"]
   if "encrypted:" `T.isPrefixOf` tzsk
     then
       let attempt n = do
@@ -289,7 +314,7 @@ resolve rt alias = do
           ContractAlias -> (["show","known","contract"], "")
           AddressAlias -> (["show","address"], "Hash: ")
           _ -> error "resolve: impossible condition"
-  key <- T.strip . lineWithPrefix prefix <$> exec False (params <> [alias])
+  key <- T.strip . lineWithPrefix prefix <$> execSilentWithStdout (params <> [alias])
   let errLabel = "Failed to resolve alias " <> toString alias
   case rt of
     PublicKeyAlias -> handleErr errLabel $ parsePublicKey key
@@ -304,15 +329,15 @@ handleErr s = either (fail . ((s <> ": ") <>) . pretty) pure
 generateKey
   :: Text -> TzTest PublicKey
 generateKey alias = do
-  _ <- exec False [ "gen", "keys", alias ]
+  execSilent [ "gen", "keys", alias ]
   let errLabel = "Error generating key " <> toString alias
-  pk <- T.strip . lineWithPrefix "Public Key: " <$> exec False [ "show", "address", alias ]
+  pk <- T.strip . lineWithPrefix "Public Key: " <$> execSilentWithStdout [ "show", "address", alias ]
   handleErr errLabel $ parsePublicKey pk
 
 importSecretKey :: Text -> SecretKey -> TzTest Address
 importSecretKey alias sk = do
   let skUri = "unencrypted:" <> formatSecretKey sk
-  output <- exec False $ ["import", "secret", "key", alias, skUri, "--force"]
+  output <- execSilentWithStdout $ ["import", "secret", "key", alias, skUri, "--force"]
   let addrStr = words output ^. ix 3
   either (fail . pretty) pure (parseAddress addrStr)
 
@@ -324,7 +349,7 @@ getStorage
   )
   => Address -> TzTest st
 getStorage addr = do
-  output <- exec False $
+  output <- execSilentWithStdout $
     ["get", "contract", "storage", "for", formatAddress addr]
   either (fail . pretty) pure $
     parseLorentzValue @st output
@@ -334,7 +359,7 @@ stripQuotes = T.dropAround (== '"') . T.strip
 
 getChainId :: Text -> TzTest ChainId
 getChainId name = do
-  output <- exec False $
+  output <- execSilentWithStdout $
     ["rpc", "get", "/chains/" <> name <> "/chain_id"]
 
   either (fail . pretty) pure
@@ -345,7 +370,7 @@ getMainChainId = getChainId "main"
 
 getHeadTimestamp :: TzTest Timestamp
 getHeadTimestamp = do
-  output <- exec False $ ["get", "timestamp"]
+  output <- execSilentWithStdout $ ["get", "timestamp"]
   maybe (fail "Failed to parse timestamp") pure $
     parseTimestamp . T.strip $ output
 
@@ -363,8 +388,13 @@ hashAddressToScriptExpression =
 getElementTextOfBigMapByHash
   :: Text -> Natural -> TzTest Text
 getElementTextOfBigMapByHash thash bigMapId = do
-  T.strip <$>
-     exec {-True-} False ["get", "element", thash, "of", "big", "map", show bigMapId]
+  (o, e) <- exec Silent ["get", "element", thash, "of", "big", "map", show bigMapId]
+  return $
+    if T.null e
+      then T.strip o
+      else if "Error:\n  Did not find service:" `T.isPrefixOf` e
+              then "0"
+              else "Internal error: " <> e
 
 getElementTextOfBigMapByAddress
   :: Address -> Natural -> TzTest Text

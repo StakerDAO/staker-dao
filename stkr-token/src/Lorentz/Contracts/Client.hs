@@ -7,9 +7,8 @@ module Lorentz.Contracts.Client
   , multisignValue
   , signBytes
   , ContractAddresses (..)
-  , ViaMultisigOptions (..)
-  , callViaMultisig
   , signViaMultisig
+  , ViaMultisigOptions (..)
   , VoteForProposalOptions (..)
   , voteForProposal
   , getTotalSupply
@@ -105,6 +104,12 @@ signViaMultisig order ViaMultisigOptions {..} = do
   let param = Msig.Parameter order nonce pkSigs
   pure (param, pkSigs)
 
+data ViaMultisigOptions = ViaMultisigOptions
+  { vmoMsig :: Address
+  , vmoSign :: ByteString -> TzTest [(PublicKey, Signature)]
+  , vmoNonce :: Maybe Natural
+  }
+
 mkStkrFrozenOrder
   :: STKR.PermitOnFrozenParam
   -> Address
@@ -122,18 +127,6 @@ mkStkrOpsOrder stkrParam stkrAddr =
   Msig.mkCallOrderWrap @STKR.Parameter
     (Msig.Unsafe stkrAddr) #cOpsTeamEntrypoint
     (STKR.EnsureOwner stkrParam)
-
-callViaMultisig
-  :: Address -> Msig.Order -> ViaMultisigOptions -> TzTest ()
-callViaMultisig from order vmo = do
-  (param, _) <- signViaMultisig order vmo
-  Tz.call from (vmoMsig vmo) param
-
-data ViaMultisigOptions = ViaMultisigOptions
-  { vmoMsig :: Address
-  , vmoSign :: ByteString -> TzTest [(PublicKey, Signature)]
-  , vmoNonce :: Maybe Natural
-  }
 
 data VoteForProposalOptions = VoteForProposalOptions
   { vpStkr :: Address

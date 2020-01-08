@@ -14,7 +14,7 @@ import Tezos.Core (unsafeMkMutez)
 import Util.Named ((.!))
 import Tezos.Crypto (hashKey, formatPublicKey, formatSignature)
 import Util.IO (writeFileUtf8)
-import Lorentz.Value (toContractRef)
+import Lorentz.Value (toContractRef, Address)
 
 import TzTest (TzTest)
 import qualified TzTest as Tz
@@ -55,44 +55,35 @@ localCmdRunner = \case
 signViaMultisig
   :: Msig.Order
   -> ViaMultisigOptions
-  -> TzTest (Msig.Parameter, [(L.PublicKey, L.Signature)])
+  -> TzTest (Address, (Msig.Parameter, [(L.PublicKey, L.Signature)]))
 signViaMultisig order ViaMultisigOptions {..} = do
   msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
-  Client.signViaMultisig order $ Client.ViaMultisigOptions
+  (msigAddr, ) <$> (Client.signViaMultisig order $ Client.ViaMultisigOptions
     { vmoMsig = msigAddr
     , vmoSign =
         \bytes ->
         mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
     , ..
-    }
+    })
 
 printPkSigs
   :: Msig.Order
   -> ViaMultisigOptions
   -> TzTest ()
 printPkSigs order vmo = do
-  (_, pkSigs) <- signViaMultisig order vmo
+  (_, (_, pkSigs)) <- signViaMultisig order vmo
   forM_ pkSigs $ \(pk, sig) ->
     putTextLn $ formatPublicKey pk <> ":" <> formatSignature sig
 
-callViaMultisig' ::
-  (L.Address -> Client.ViaMultisigOptions -> TzTest ())
-   -> ViaMultisigOptions -> TzTest ()
-callViaMultisig' f ViaMultisigOptions {..} = do
+callViaMultisig
+  :: Msig.Order
+  -> ViaMultisigOptions
+  -> TzTest ()
+callViaMultisig order vmo@(ViaMultisigOptions {..}) = do
   fromAddr <- maybe (fail "From address not specified")
                     (Tz.resolve' Tz.AddressAlias) vmoFrom
-  msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
-  f fromAddr $ Client.ViaMultisigOptions
-    { vmoMsig = msigAddr
-    , vmoSign =
-        \bytes ->
-        mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
-    , ..
-    }
-
-callViaMultisig
-  :: Msig.Order -> ViaMultisigOptions -> TzTest ()
-callViaMultisig p = callViaMultisig' (flip Client.callViaMultisig p)
+  (msigAddr, (param, _)) <- signViaMultisig order vmo
+  Tz.call fromAddr msigAddr param
 
 handleFrozenMultisig
   :: Bool

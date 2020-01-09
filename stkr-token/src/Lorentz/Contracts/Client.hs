@@ -132,7 +132,7 @@ data VoteForProposalOptions = VoteForProposalOptions
   , vpProposalId :: Natural
   }
 
-voteForProposal :: VoteForProposalOptions -> TzTest ()
+voteForProposal :: VoteForProposalOptions -> TzTest (PublicKey, Signature)
 voteForProposal VoteForProposalOptions {..} = do
   STKR.AlmostStorage{..} <- STKR.getStorage vpStkr
   proposalHash <-
@@ -140,11 +140,7 @@ voteForProposal VoteForProposalOptions {..} = do
     fmap (arg #proposalHash . snd) . safeHead . snd . splitAt (fromIntegral vpProposalId - 1) $ proposals
   let curStage = vpEpoch*4 + 2
   let toSignB = lPackValue $ STKR.CouncilDataToSign proposalHash vpStkr curStage
-  (pk, sig) <- Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
-  Tz.call vpFrom vpStkr
-    $ STKR.PublicEntrypoint
-    . STKR.VoteForProposal
-    $ (#proposalId vpProposalId, #votePk pk, #voteSig sig)
+  Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
 
 -- No dedicated parameters types for all APIs below
 

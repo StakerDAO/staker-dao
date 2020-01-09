@@ -11,6 +11,7 @@ module Lorentz.Contracts.Client
   , ViaMultisigOptions (..)
   , VoteForProposalOptions (..)
   , voteForProposal
+  , fund
   , getTotalSupply
   , getBalance
   , mkStkrOpsOrder
@@ -149,6 +150,13 @@ voteForProposal VoteForProposalOptions {..} = do
     $ STKR.PublicEntrypoint
     . STKR.VoteForProposal
     $ (#proposalId vpProposalId, #votePk pk, #voteSig sig)
+
+-- No dedicated parameters types for all APIs below
+
+fund :: Address -> Address -> ByteString -> TzTest ()
+fund stkr from payload =
+  Tz.call from stkr
+    $ STKR.PublicEntrypoint (STKR.Fund payload)
 
 -- We dont' bother with getBalance/getTotalSupply entrypoints ATM, simply use
 --   getStorage primitive, and return necessary values immediately.

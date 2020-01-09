@@ -29,7 +29,7 @@ import Parser
   NewProposalOptions(..), RemoteAction(..), RemoteCommand(..), TzEnvConfig(..),
   ViaMultisigOptions(..), VoteForProposalOptions(..), GetBalanceOptions(..),
   GetTotalSupplyOptions (..), TransferOptions (..), SetSuccessorOptions (..),
-  WithdrawOptions (..), FreezeOptions (..),
+  WithdrawOptions (..), FreezeOptions (..), FundOptions (..),
   RotateMsigKeysOptions (..), cmdParser)
 
 main :: IO ()
@@ -152,6 +152,10 @@ remoteCmdRunner = \case
       , vpSign = \toSignB -> Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
       , ..
       }
+  Fund FundOptions {..} -> do
+    fromAddr <- Tz.resolve' Tz.AddressAlias fnFrom
+    stkrAddr <- Tz.resolve' Tz.ContractAlias fnStkr
+    Client.fund stkrAddr fromAddr (encodeUtf8 fnPayload)
   PrintStorage addr_ ->
     Tz.resolve' Tz.ContractAlias addr_ >>=
     STKR.getStorage >>= liftIO . T.putStrLn . pretty

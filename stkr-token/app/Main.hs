@@ -58,13 +58,7 @@ signViaMultisig
   -> TzTest (Address, (Msig.Parameter, [(L.PublicKey, L.Signature)]))
 signViaMultisig order ViaMultisigOptions {..} = do
   msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
-  (msigAddr, ) <$> (Client.signViaMultisig order $ Client.ViaMultisigOptions
-    { vmoMsig = msigAddr
-    , vmoSign =
-        \bytes ->
-        mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
-    , ..
-    })
+  (msigAddr, ) <$> Client.signViaMultisig order msigAddr vmoMsigSignatures vmoNonce
 
 printPkSigs
   :: Msig.Order
@@ -149,7 +143,6 @@ remoteCmdRunner = \case
     Client.voteForProposal $ Client.VoteForProposalOptions
       { vpFrom = fromAddr
       , vpStkr = stkrAddr
-      , vpSign = \toSignB -> Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
       , ..
       }
   Fund FundOptions {..} -> do

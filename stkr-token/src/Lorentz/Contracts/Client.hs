@@ -8,7 +8,6 @@ module Lorentz.Contracts.Client
   , signBytes
   , ContractAddresses (..)
   , signViaMultisig
-  , ViaMultisigOptions (..)
   , VoteForProposalOptions (..)
   , voteForProposal
   , fund
@@ -94,22 +93,18 @@ signBytes sk bytes =
 
 signViaMultisig
   :: Msig.Order
-  -> ViaMultisigOptions
+  -> Address
+  -> [Tz.OrAlias (PublicKey, Signature)]
+  -> Maybe Natural
   -> TzTest (Msig.Parameter, [(PublicKey, Signature)])
-signViaMultisig order ViaMultisigOptions {..} = do
+signViaMultisig order vmoMsig vmoMsigSignatures vmoNonce = do
   let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage vmoMsig
   nonce <- maybe getNonce pure vmoNonce
   let toSign = Msig.ValueToSign vmoMsig nonce order
   let bytes = lPackValue toSign
-  pkSigs <- vmoSign bytes
+  pkSigs <- mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
   let param = Msig.Parameter order nonce pkSigs
   pure (param, pkSigs)
-
-data ViaMultisigOptions = ViaMultisigOptions
-  { vmoMsig :: Address
-  , vmoSign :: ByteString -> TzTest [(PublicKey, Signature)]
-  , vmoNonce :: Maybe Natural
-  }
 
 mkStkrFrozenOrder
   :: STKR.PermitOnFrozenParam
@@ -132,7 +127,7 @@ mkStkrOpsOrder stkrParam stkrAddr =
 data VoteForProposalOptions = VoteForProposalOptions
   { vpStkr :: Address
   , vpFrom :: Address
-  , vpSign :: ByteString -> TzTest (PublicKey, Signature)
+  , vpPkSig :: Tz.OrAlias (PublicKey, Signature)
   , vpEpoch :: Natural
   , vpProposalId :: Natural
   }
@@ -145,7 +140,7 @@ voteForProposal VoteForProposalOptions {..} = do
     fmap (arg #proposalHash . snd) . safeHead . snd . splitAt (fromIntegral vpProposalId - 1) $ proposals
   let curStage = vpEpoch*4 + 2
   let toSignB = lPackValue $ STKR.CouncilDataToSign proposalHash vpStkr curStage
-  (pk, sig) <- vpSign toSignB
+  (pk, sig) <- Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
   Tz.call vpFrom vpStkr
     $ STKR.PublicEntrypoint
     . STKR.VoteForProposal

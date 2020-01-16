@@ -11,11 +11,11 @@ module Lorentz.Contracts.STKR.Governance.Common
 import Util.Named ((:!))
 
 import Lorentz
-import Lorentz.Contracts.STKR.Governance.TypeDefs (TimeConfig(..), Policy)
+import Lorentz.Contracts.Common (countMapEls, extractDate, failIfNone)
+import Lorentz.Contracts.STKR.Error ()
+import Lorentz.Contracts.STKR.Governance.TypeDefs (Policy, TimeConfig(..))
 import Lorentz.Contracts.STKR.Storage (Storage)
 import Prelude (foldr)
-import Lorentz.Contracts.STKR.Error ()
-import Lorentz.Contracts.Common (countMapEls, extractDate, failIfNone)
 
 getCurrentStage
   :: TimeConfig -> s :-> (Natural & s)
@@ -116,6 +116,7 @@ calcWinner = do
       dip $ do
         dip $ dup # dug @3
         get
+        stackType @_
         if IsSome then nop else push 0
         push @Natural 2
         mul

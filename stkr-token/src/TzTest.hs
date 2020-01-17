@@ -236,7 +236,7 @@ lineWithPrefix prefix txt
       mapMaybe (T.stripPrefix prefix) (lines txt)
 
 -- Tezos.Crypto exports SecretKey abstractly, don't bother to change it
-mySignPK :: ByteString -> ByteString -> (PublicKey, Signature)
+mySignPK :: ScrubbedView -> ByteString -> (PublicKey, Signature)
 mySignPK skBytes bytes = (PublicKey pk, Signature . Ed25519.sign sk pk . blake2b $ bytes)
   where
     sk = CE.throwCryptoError $ Ed25519.secretKey skBytes
@@ -249,6 +249,7 @@ generateSigPK alias bytes = do
   if "encrypted:" `T.isPrefixOf` tzsk
     then
       let attempt n = do
+            -- Pretend it's safe to have the password as a list (not buffer)
             mbPass <- liftIO
               $ runInputT defaultSettings (getPassword (Just '*')
               $ "Please, enter the password for " <> toString alias <> ": ")

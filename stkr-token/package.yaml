@@ -36,6 +36,8 @@ library:
     - bytestring
     - haskeline
     - cryptonite
+    - memory
+    - utf8-string
     - text
     - process
     - singletons

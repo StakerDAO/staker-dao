@@ -1,7 +1,7 @@
 module Options
   ( fileOutputOption
   , aliasOption
-  , fileArg
+  , pkHashOption
 
   , OrAlias (..)
   , addrOrAliasOption
@@ -21,12 +21,15 @@ module Options
   , nonceOption
   , timeConfigOption
   , councilOption
+  , reservoirOption
 
+  , totalSupplyOption
   , proposalIdOption
   , epochOption
 
   , valueOption
   , amountOption
+  , printSigsOnlyOption
   ) where
 
 import Prelude
@@ -70,10 +73,10 @@ addressOption name =
   Opt.option addressReader $
     mconcat [Opt.long name, Opt.metavar "ADDRESS"]
 
-fileArg :: Opt.Parser FilePath
-fileArg = Opt.strOption $ mconcat
-  [ Opt.metavar "PK FILE"
-  , Opt.long "team-pk"
+pkHashOption :: Opt.Parser KeyHash
+pkHashOption = Opt.option keyHashReader $ mconcat
+  [ Opt.metavar "PK_HASH"
+  , Opt.long "team-pk-hash"
   ]
 
 addressReader :: Opt.ReadM Address
@@ -179,6 +182,12 @@ timeConfigOption = test <|> prod
         <$> Opt.switch (Opt.long "test" <> Opt.help "Run in test mode")
         <*> startOption <*> durationOption
 
+reservoirOption :: Opt.Parser Bool
+reservoirOption =
+  Opt.switch (
+    Opt.long "reservoir" <>
+    Opt.help "Use reservoir address as payer")
+
 councilOption :: Opt.Parser (Either (Text, Int) (Set KeyHash))
 councilOption = Left <$> genKeys <|> Right <$> readKeys
   where
@@ -205,6 +214,14 @@ proposalIdOption = Opt.option Opt.auto $
     <> Opt.help "Id of proposal to vote for"
     <> Opt.metavar "INT"
 
+totalSupplyOption :: Opt.Parser Natural
+totalSupplyOption = Opt.option Opt.auto $
+  Opt.long "supply"
+    <> Opt.help "Total supply of STKR token"
+    <> Opt.metavar "INT"
+    <> Opt.showDefault
+    <> Opt.value 0
+
 epochOption :: Opt.Parser Natural
 epochOption = Opt.option Opt.auto $
   Opt.long "epoch" <> Opt.short 'e'
@@ -222,3 +239,8 @@ amountOption = Opt.option Opt.auto $
   Opt.long "amount" <> Opt.short 'a'
     <> Opt.help "Amount to withdraw"
     <> Opt.metavar "INT"
+
+printSigsOnlyOption :: Opt.Parser Bool
+printSigsOnlyOption = Opt.switch $
+  Opt.long "print-sigs"
+    <> Opt.help "Print signatures only, do not submit data to network"

@@ -5,16 +5,16 @@ module Main
 import Prelude
 
 import qualified Data.Set as Set
-import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Fmt (pretty, (+|), (|+))
 import qualified Lorentz as L
 import qualified Options.Applicative as Opt
 import qualified Data.Yaml as Yaml
-import Tezos.Crypto (hashKey, parsePublicKey)
 import Tezos.Core (unsafeMkMutez)
-import Util.IO (readFileUtf8, writeFileUtf8)
 import Util.Named ((.!))
+import Tezos.Crypto (hashKey, formatPublicKey, formatSignature)
+import Util.IO (writeFileUtf8)
+import Lorentz.Value (toContractRef)
 
 import TzTest (TzTest)
 import qualified TzTest as Tz
@@ -29,7 +29,8 @@ import Parser
   NewProposalOptions(..), RemoteAction(..), RemoteCommand(..), TzEnvConfig(..),
   ViaMultisigOptions(..), VoteForProposalOptions(..), GetBalanceOptions(..),
   GetTotalSupplyOptions (..), TransferOptions (..), SetSuccessorOptions (..),
-  WithdrawOptions (..), cmdParser)
+  WithdrawOptions (..), FreezeOptions (..),
+  RotateMsigKeysOptions (..), cmdParser)
 
 main :: IO ()
 main = do
@@ -51,17 +52,38 @@ localCmdRunner = \case
       maybe putStrLn writeFileUtf8 out $
       L.printLorentzContract False (STKR.stkrContract tc)
 
-withMultisigOptions ::
-  (Client.ViaMultisigOptions -> TzTest ())
-   -> ViaMultisigOptions -> TzTest ()
-withMultisigOptions f ViaMultisigOptions {..} = do
-  fromAddr <- Tz.resolve' Tz.AddressAlias vmoFrom
+signViaMultisig
+  :: Msig.Order
+  -> ViaMultisigOptions
+  -> TzTest (Msig.Parameter, [(L.PublicKey, L.Signature)])
+signViaMultisig order ViaMultisigOptions {..} = do
   msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
-  stkrAddr <- Tz.resolve' Tz.ContractAlias vmoStkr
-  f $ Client.ViaMultisigOptions
-    { vmoFrom = fromAddr
-    , vmoMsig = msigAddr
-    , vmoStkr = stkrAddr
+  Client.signViaMultisig order $ Client.ViaMultisigOptions
+    { vmoMsig = msigAddr
+    , vmoSign =
+        \bytes ->
+        mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
+    , ..
+    }
+
+printPkSigs
+  :: Msig.Order
+  -> ViaMultisigOptions
+  -> TzTest ()
+printPkSigs order vmo = do
+  (_, pkSigs) <- signViaMultisig order vmo
+  forM_ pkSigs $ \(pk, sig) ->
+    putTextLn $ formatPublicKey pk <> ":" <> formatSignature sig
+
+callViaMultisig' ::
+  (L.Address -> Client.ViaMultisigOptions -> TzTest ())
+   -> ViaMultisigOptions -> TzTest ()
+callViaMultisig' f ViaMultisigOptions {..} = do
+  fromAddr <- maybe (fail "From address not specified")
+                    (Tz.resolve' Tz.AddressAlias) vmoFrom
+  msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
+  f fromAddr $ Client.ViaMultisigOptions
+    { vmoMsig = msigAddr
     , vmoSign =
         \bytes ->
         mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
@@ -69,21 +91,49 @@ withMultisigOptions f ViaMultisigOptions {..} = do
     }
 
 callViaMultisig
-  :: STKR.OpsTeamEntrypointParam -> ViaMultisigOptions -> TzTest ()
-callViaMultisig p = withMultisigOptions (Client.callViaMultisig p)
+  :: Msig.Order -> ViaMultisigOptions -> TzTest ()
+callViaMultisig p = callViaMultisig' (flip Client.callViaMultisig p)
+
+handleFrozenMultisig
+  :: Bool
+  -> Tz.OrAlias L.Address
+  -> STKR.PermitOnFrozenParam
+  -> ViaMultisigOptions
+  -> ReaderT Tz.Env IO ()
+handleFrozenMultisig printSigs_ stkrAddrOrAlias stkrParam vmo = do
+  stkrAddr <- Tz.resolve' Tz.ContractAlias stkrAddrOrAlias
+  let order = Client.mkStkrFrozenOrder stkrParam stkrAddr
+  bool callViaMultisig printPkSigs printSigs_ order vmo
+
+handleOpsMultisig
+  :: Bool
+  -> Tz.OrAlias L.Address
+  -> STKR.OpsTeamEntrypointParam
+  -> ViaMultisigOptions
+  -> ReaderT Tz.Env IO ()
+handleOpsMultisig printSigs_ stkrAddrOrAlias stkrParam vmo = do
+  stkrAddr <- Tz.resolve' Tz.ContractAlias stkrAddrOrAlias
+  let order = Client.mkStkrOpsOrder stkrParam stkrAddr
+  bool callViaMultisig printPkSigs printSigs_ order vmo
+
+rotateKeys
+  :: Bool
+  -> Set L.KeyHash
+  -> ViaMultisigOptions
+  -> ReaderT Tz.Env IO ()
+rotateKeys printSigs_ teamKeys vmo = do
+  let order = Msig.mkRotateKeysOrder teamKeys
+  bool callViaMultisig printPkSigs printSigs_ order vmo
 
 remoteCmdRunner :: RemoteCommand -> TzTest ()
 remoteCmdRunner = \case
   Deploy DeployOptions{..} -> do
-    let readSkFromFile filename =
-          readFileUtf8 filename >>=
-          either (fail . pretty) pure . parsePublicKey . T.strip
     let msigKeyName i = msigAlias <> "_key_" <> show (i :: Int)
     teamKeys <-
-      fmap (Set.fromList . fmap hashKey) $
-        if null teamPksFiles
-        then mapM (Tz.generateKey . msigKeyName) [1..3]
-        else liftIO $ traverse readSkFromFile teamPksFiles
+      fmap Set.fromList $
+        if null teamPkHashes
+        then mapM (fmap hashKey . Tz.generateKey . msigKeyName) [1..3]
+        else pure teamPkHashes
     originator' <- Tz.resolve' Tz.AddressAlias originator
     addrs <- Client.deploy $
       Client.DeployOptions
@@ -93,15 +143,15 @@ remoteCmdRunner = \case
         }
     putTextLn $ "Deploy result: " +| addrs |+ ""
   NewProposal NewProposalOptions {..} -> do
-    mbProposal <- liftIO $ STKR.proposalText2Proposal <$> Yaml.decodeFileThrow @IO @_ npProposalFile
-    case mbProposal of
-      Left err -> fail $ toString err
-      Right prop -> callViaMultisig (STKR.NewProposal prop) npViaMultisig
+    prop <- liftIO $ STKR.fromJProposal <$> Yaml.decodeFileThrow npProposalFile
+    handleOpsMultisig npPrintSigs npStkr (STKR.NewProposal prop) npViaMultisig
   NewCouncil NewCouncilOptions {..} -> do
     let genCouncil (prefix, n) =
           mapM (\i -> fmap hashKey . Tz.generateKey $ prefix <> "_key_" <> show i) [1..n]
     council <- either (fmap Set.fromList . genCouncil) pure ncCouncil
-    callViaMultisig (STKR.NewCouncil council) ncViaMultisig
+    handleOpsMultisig ncPrintSigs ncStkr (STKR.NewCouncil council) ncViaMultisig
+  RotateMsigKeys RotateMsigKeysOptions {..} -> do
+    rotateKeys nmPrintSigs (Set.fromList nmNewKeys) nmViaMultisig
   VoteForProposal VoteForProposalOptions {..} -> do
     fromAddr <- Tz.resolve' Tz.AddressAlias vpFrom
     stkrAddr <- Tz.resolve' Tz.ContractAlias vpStkr
@@ -117,21 +167,37 @@ remoteCmdRunner = \case
   GetBalance GetBalanceOptions {..} -> do
     -- fromAddr <- Tz.resolve' Tz.AddressAlias gbFrom -- use getStorage API ATM
     stkrAddr <- Tz.resolve' Tz.ContractAlias gbStkr
-    whoseAddr <- Tz.resolve' Tz.AddressAlias gbWhose
-    Client.getBalance stkrAddr whoseAddr
+    whose <-
+      case (gbWhose, gbUseReservoir) of
+        (Nothing, True) -> pure STKR.reservoirAddr
+        (Just payer, False) -> Tz.resolve' Tz.AddressAlias payer
+        _ -> fail "Either --reservoir or --addr <addr> should be specified"
+    Client.getBalance stkrAddr whose
   GetTotalSupply GetTotalSupplyOptions {..} -> do
     -- fromAddr <- Tz.resolve' Tz.AddressAlias gbFrom -- use getStorage API ATM
     stkrAddr <- Tz.resolve' Tz.ContractAlias gtsStkr
     Client.getTotalSupply stkrAddr
   Transfer TransferOptions {..} -> do
-    tFromAddr <- Tz.resolve' Tz.AddressAlias tFrom
-    tToAddr <- Tz.resolve' Tz.AddressAlias tTo
-    callViaMultisig (STKR.Transfer (#from .! tFromAddr, #to .! tToAddr, #value .! tVal)) tViaMultisig
-  Freeze msigOptions -> callViaMultisig (STKR.Freeze ()) msigOptions
+    from <-
+      case (tPayer, tUseReservoir) of
+        (Nothing, True) -> pure STKR.reservoirAddr
+        (Just payer, False) -> Tz.resolve' Tz.AddressAlias payer
+        _ -> fail "Either --reservoir or --payer <addr> should be specified"
+    to <- Tz.resolve' Tz.AddressAlias tReceiver
+    let param = STKR.Transfer
+                  ( #from .! from
+                  , #to .! to
+                  , #value .! tVal )
+    handleOpsMultisig tPrintSigs tStkr param tViaMultisig
+  Freeze FreezeOptions {..} ->
+    handleOpsMultisig fPrintSigs fStkr (STKR.Freeze ()) fViaMultisig
   SetSuccessor SetSuccessorOptions {..} -> do
-    ssSuccAddr <- Tz.resolve' Tz.ContractAlias ssSucc
-    withMultisigOptions (Client.setSuccessor ssSuccAddr) ssViaMultisig
+    newStkrAddr <- Tz.resolve' Tz.ContractAlias ssSucc
+    let param = STKR.SetSuccessor $ #successor $
+                  STKR.successorLambda (toContractRef newStkrAddr)
+    handleFrozenMultisig ssPrintSigs ssStkr param ssViaMultisig
   Withdraw WithdrawOptions {..} -> do
-    wFromAddr <- Tz.resolve' Tz.AddressAlias wFrom
+    toAddr <- Tz.resolve' Tz.AddressAlias wReceiver
     -- FIXME??? We use `unsafeMkMutez` which throws instead of manual handling of `Nothing`
-    withMultisigOptions (Client.withdraw wFromAddr $ unsafeMkMutez wAmount) wViaMultisig
+    let param = STKR.Withdraw (#to toAddr, #amount (unsafeMkMutez wAmount))
+    handleFrozenMultisig wPrintSigs wStkr param wViaMultisig

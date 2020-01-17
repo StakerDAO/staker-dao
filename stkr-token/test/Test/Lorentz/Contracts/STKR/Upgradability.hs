@@ -70,7 +70,7 @@ spec_FreezeEntrypoint = do
         }
       callWithMultisig msig 1 teamSks stkr $ STKR.Freeze ()
 
-      let hash = fromMaybe (error "tezosWpUrlHash: unexpected") . decodeHex $
+      let hash = STKR.Sha256Hash $ fromMaybe (error "tezosWpUrlHash: unexpected") . decodeHex $
             "be7663e0ef87d51ab149a60dfad4df5940d30395ba287d9907f8d66ce5061d96"
       let url = [mt|https://tezos.com/static/white_paper-2dc8c02267a8fb86bd67a108199441bf.pdf|]
       let tezosWpUrlHash = (hash, url)

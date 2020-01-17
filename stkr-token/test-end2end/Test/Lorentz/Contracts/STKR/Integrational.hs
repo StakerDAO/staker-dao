@@ -29,7 +29,6 @@ import Lorentz.Contracts.Client as Client
 import qualified Lorentz.Contracts.STKR as STKR
 import qualified Lorentz.Contracts.STKR.Client as STKR
 
-
 data TestOptions = TestOptions
   { faucetName :: Text
   , msigAlias :: Text
@@ -74,8 +73,8 @@ spec_NetworkTest = do
     , ..
     }
 
-tezosWpUrlHash :: (STKR.Hash, STKR.URL)
-tezosWpUrlHash = (hash_, url)
+tezosWpUrlHash :: (STKR.Sha256Hash, STKR.URL)
+tezosWpUrlHash = (STKR.Sha256Hash hash_, url)
   where
     url = mkMTextUnsafe "https://tezos.com/static/white_paper-2dc8c02267a8fb86bd67a108199441bf.pdf"
     hash_ = fromMaybe (error "tezosWpUrlHash: unexpected") . decodeHex $
@@ -134,29 +133,28 @@ networkTestSpec TestOptions{..} = do
     DeployOptions
       { originator = faucet
       , councilPks = []
+      , totalSupply_ = 0
       , ..
       }
   runIO $ putTextLn $ "Deployed contracts: " <> pretty ca
 
   let vmo =
         ViaMultisigOptions
-          { vmoFrom = faucet
-          , vmoMsig = msigAddr
-          , vmoStkr = stkrAddr
+          { vmoMsig = msigAddr
           , vmoSign = pure . multisignBytes teamSks
           , vmoNonce = Nothing
           }
 
   it "passes happy case for newProposal" . tzTest $ do
     waitForStage 0
-    callViaMultisig (STKR.NewProposal newProposal) vmo
+    callViaMultisig faucet (Client.mkStkrOpsOrder (STKR.NewProposal newProposal) stkrAddr) vmo
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} -> do
       let proposalAndHash =
             ( #proposal newProposal, #proposalHash $
               STKR.Blake2BHash $ blake2b $ lPackValue newProposal )
       proposals `shouldBe` [proposalAndHash]
 
-    callViaMultisig (STKR.NewCouncil newCouncilKeys) vmo
+    callViaMultisig faucet (Client.mkStkrOpsOrder (STKR.NewCouncil newCouncilKeys) stkrAddr) vmo
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} ->
       councilKeys `shouldBe` newCouncilKeys
 

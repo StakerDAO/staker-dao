@@ -360,7 +360,7 @@ getElementTextOfBigMapByHash
   :: Text -> Natural -> TzTest Text
 getElementTextOfBigMapByHash thash bigMapId = do
   T.strip <$>
-     exec True ["get", "element", thash, "of", "big", "map", show bigMapId]
+     exec False ["get", "element", thash, "of", "big", "map", show bigMapId]
 
 getElementTextOfBigMapByAddress
   :: Address -> Natural -> TzTest Text

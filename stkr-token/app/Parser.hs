@@ -7,6 +7,7 @@ module Parser
   , DeployOptions (..)
   , NewProposalOptions (..)
   , NewCouncilOptions (..)
+  , RotateMsigKeysOptions (..)
   , ViaMultisigOptions (..)
   , VoteForProposalOptions (..)
   , GetBalanceOptions (..)
@@ -14,13 +15,14 @@ module Parser
   , TransferOptions (..)
   , SetSuccessorOptions (..)
   , WithdrawOptions (..)
+  , FreezeOptions (..)
   , cmdParser
   ) where
 
 import Prelude
 
-import Data.Word (Word64) -- FIXME!!! Mutez has noe Read intsance, fix Morley!!!
-import Options.Applicative (command, helper, info, progDesc)
+import Data.Word (Word64)
+import Options.Applicative (command, helper, info, progDesc, optional)
 import qualified Options.Applicative as Opt
 
 import Tezos.Address (Address)
@@ -52,37 +54,60 @@ data RemoteCommand
   | GetBalance GetBalanceOptions
   | GetTotalSupply GetTotalSupplyOptions
   | Transfer TransferOptions
-  | Freeze ViaMultisigOptions
+  | Freeze FreezeOptions
   | SetSuccessor SetSuccessorOptions
   | Withdraw WithdrawOptions
+  | RotateMsigKeys RotateMsigKeysOptions
+
+data RotateMsigKeysOptions = RotateMsigKeysOptions
+  { nmViaMultisig :: ViaMultisigOptions
+  , nmNewKeys :: [KeyHash]
+  , nmPrintSigs :: Bool
+  }
 
 data NewCouncilOptions = NewCouncilOptions
   { ncViaMultisig :: ViaMultisigOptions
+  , ncStkr :: OrAlias Address
   , ncCouncil :: Either (Text, Int) (Set KeyHash)
+  , ncPrintSigs :: Bool
   }
 
 data TransferOptions = TransferOptions
   { tViaMultisig :: ViaMultisigOptions
-  , tFrom :: OrAlias Address
-  , tTo :: OrAlias Address
+  , tStkr :: OrAlias Address
+  , tPrintSigs :: Bool
+  , tPayer :: Maybe (OrAlias Address)
+  , tUseReservoir :: Bool
+  , tReceiver :: OrAlias Address
   , tVal :: Natural
+  }
+
+data FreezeOptions = FreezeOptions
+  { fViaMultisig :: ViaMultisigOptions
+  , fStkr :: OrAlias Address
+  , fPrintSigs :: Bool
   }
 
 data SetSuccessorOptions = SetSuccessorOptions
   { ssViaMultisig :: ViaMultisigOptions
+  , ssStkr :: OrAlias Address
+  , ssPrintSigs :: Bool
   , ssSucc :: OrAlias Address
   }
 
 data WithdrawOptions = WithdrawOptions
   { wViaMultisig :: ViaMultisigOptions
-  , wFrom :: OrAlias Address
+  , wStkr :: OrAlias Address
+  , wPrintSigs :: Bool
+  , wReceiver :: OrAlias Address
   , wAmount :: Word64
   }
 
 data GetBalanceOptions = GetBalanceOptions
   { gbStkr :: OrAlias Address
   -- , gbFrom :: OrAlias Address -- use getStorage API ATM
-  , gbWhose :: OrAlias Address
+  , gbWhose :: Maybe (OrAlias Address)
+  , gbUseReservoir :: Bool
   }
 
 data GetTotalSupplyOptions = GetTotalSupplyOptions
@@ -100,23 +125,25 @@ data VoteForProposalOptions = VoteForProposalOptions
 
 data ViaMultisigOptions = ViaMultisigOptions
   { vmoMsig :: OrAlias Address
-  , vmoStkr :: OrAlias Address
-  , vmoFrom :: OrAlias Address
+  , vmoFrom :: Maybe (OrAlias Address)
   , vmoMsigSignatures :: [OrAlias (PublicKey, Signature)]
   , vmoNonce :: Maybe Natural
   }
 
 data NewProposalOptions = NewProposalOptions
   { npViaMultisig :: ViaMultisigOptions
+  , npStkr :: OrAlias Address
   , npProposalFile :: FilePath
+  , npPrintSigs :: Bool
   }
 
 data DeployOptions = DeployOptions
   { msigAlias :: Text
   , stkrAlias :: Text
   , originator :: OrAlias Address
-  , teamPksFiles :: [FilePath]
+  , teamPkHashes :: [KeyHash]
   , timeConfig :: TimeConfig
+  , totalSupply_ :: Natural
   }
 
 mkCmdPrs
@@ -166,6 +193,7 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
         , freezeSubprs
         , setSuccessorSubprs
         , withdrawSubprs
+        , newMsigKeysSubprs
         ]
 
     printMsigSubprs = mkCmdPrs "print-multisig" "Print multisig contract" $
@@ -180,21 +208,31 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
          <$> aliasOption "msig"
          <*> aliasOption "stkr"
          <*> addrOrAliasOption "from"
-         <*> many (fileArg)
+         <*> many pkHashOption
          <*> timeConfigOption
+         <*> totalSupplyOption
+        )
+
+    newMsigKeysSubprs = mkRemoteCmdPrs "rotate-msig-keys" "Change keys of Msig contract" $
+      RotateMsigKeys <$>
+        (RotateMsigKeysOptions
+          <$> viaMultisigOptions
+          <*> many pkHashOption
+          <*> printSigsOnlyOption
         )
 
     newProposalSubprs = mkRemoteCmdPrs "new-proposal" "Submit new proposal" $
       NewProposal <$>
         (NewProposalOptions
           <$> viaMultisigOptions
+          <*> addrOrAliasOption "stkr"
           <*> proposalOption
+          <*> printSigsOnlyOption
         )
 
     viaMultisigOptions = ViaMultisigOptions
       <$> addrOrAliasOption "msig"
-      <*> addrOrAliasOption "stkr"
-      <*> addrOrAliasOption "from"
+      <*> optional (addrOrAliasOption "from")
       <*> many (pkSigOption "msig")
       <*> nonceOption
 
@@ -202,7 +240,9 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
       NewCouncil <$>
         (NewCouncilOptions
           <$> viaMultisigOptions
+          <*> addrOrAliasOption "stkr"
           <*> councilOption
+          <*> printSigsOnlyOption
         )
 
     voteSubprs = mkRemoteCmdPrs "vote" "Vote for a proposal" $
@@ -218,15 +258,16 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
     printStorageSubprs = mkRemoteCmdPrs "print-storage" "Print storage of a contract" $
       PrintStorage <$> addrOrAliasOption "contract"
 
-    getBalanceSubprs = mkRemoteCmdPrs "get-balance-stkr" "Get balance of a STKR token address" $
+    getBalanceSubprs = mkRemoteCmdPrs "get-balance" "Get balance of a STKR token address" $
       GetBalance <$>
         (GetBalanceOptions
           <$> addrOrAliasOption "stkr"
           -- <*> addrOrAliasOption "from" -- use getStorage API ATM
-          <*> addrOrAliasOption "whose"
+          <*> optional (addrOrAliasOption "addr")
+          <*> reservoirOption
         )
 
-    getTotalSupplySubprs = mkRemoteCmdPrs "get-total-stkr" "Get total supply of STKR" $
+    getTotalSupplySubprs = mkRemoteCmdPrs "total-supply" "Get total supply of STKR" $
       GetTotalSupply <$>
         (GetTotalSupplyOptions
           <$> addrOrAliasOption "stkr"
@@ -237,25 +278,37 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
       Transfer <$>
         (TransferOptions
           <$> viaMultisigOptions
-          <*> addrOrAliasOption "from"
-          <*> addrOrAliasOption "to"
+          <*> addrOrAliasOption "stkr"
+          <*> printSigsOnlyOption
+          <*> optional (addrOrAliasOption "payer")
+          <*> reservoirOption
+          <*> addrOrAliasOption "receiver"
           <*> valueOption
         )
 
     freezeSubprs = mkRemoteCmdPrs "freeze" "Freeze the contract" $
-      Freeze <$> viaMultisigOptions
+      Freeze <$>
+        (FreezeOptions
+          <$> viaMultisigOptions
+          <*> addrOrAliasOption "stkr"
+          <*> printSigsOnlyOption
+        )
 
-    setSuccessorSubprs = mkRemoteCmdPrs "set-successor-stkr" "Set the successor of STKR contract" $
+    setSuccessorSubprs = mkRemoteCmdPrs "set-successor" "Set the successor of STKR contract" $
       SetSuccessor <$>
         (SetSuccessorOptions
           <$> viaMultisigOptions
+          <*> addrOrAliasOption "stkr"
+          <*> printSigsOnlyOption
           <*> addrOrAliasOption "succ"
         )
 
-    withdrawSubprs = mkRemoteCmdPrs "withdraw" "Withdraw funds from frozen STKR contract" $
+    withdrawSubprs = mkRemoteCmdPrs "withdraw" "Withdraw funds from STKR contract" $
       Withdraw <$>
         (WithdrawOptions
           <$> viaMultisigOptions
-          <*> addrOrAliasOption "from"
+          <*> addrOrAliasOption "stkr"
+          <*> printSigsOnlyOption
+          <*> addrOrAliasOption "receiver"
           <*> amountOption
         )

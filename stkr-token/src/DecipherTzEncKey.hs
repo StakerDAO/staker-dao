@@ -8,9 +8,7 @@ import Data.Text (Text)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Unsafe as BSU
 import qualified Codec.Binary.UTF8.String as UTF8
-import Foreign.Storable (peek, poke)
 import Foreign.Marshal.Array (pokeArray)
-import Foreign.Ptr (castPtr)
 import Foreign.C.String (CString)
 import Foreign.C (CInt(..))
 import Data.Word (Word64)
@@ -35,24 +33,18 @@ sodiumSecretboxOpen :: BS.ByteString -> BS.ByteString -> BS.ByteString -> IO (Ei
 sodiumSecretboxOpen c nonce k
   | BS.length k /= 32 = pure $ Left DeciferWrongEncryptionKeyLength
   | otherwise = do
-      opened <- B.alloc plen ini
-      -- reuse the first bytes for ret code (see below)
-      r <- B.withByteArray opened (peek @CInt)
+      scrubbed <- B.alloc plen (const $ pure ())
+      r <- B.withByteArray scrubbed doit
       pure $
         if r == 0
-          then Right $ B.view opened 32 (plen - 32)
+          then Right $ B.view scrubbed 32 (plen - 32)
           else Left DeciferWrongCipher
   where
-    ini mptr = do
+    doit mptr = do
              BSU.unsafeUseAsCString padded $ \pptr ->
                BSU.unsafeUseAsCString nonce $ \nptr ->
-                 BSU.unsafeUseAsCString k $ \kptr -> do
-                   r <- crypto_secretbox_open mptr pptr (fromIntegral plen) nptr kptr
-                   -- Inelegant, reuse first bytes to put retcode into.
-                   -- ALTERNATIVES:
-                   --   1. use exceptions (exceptions are not particularly good when used for control flow)
-                   --   2. allocate separate buffer for the ret value (overkill)
-                   poke (castPtr mptr) r
+                 BSU.unsafeUseAsCString k $ \kptr ->
+                   crypto_secretbox_open mptr pptr (fromIntegral plen) nptr kptr
     padded = BS.replicate 16 0 `BS.append` c
     plen = BS.length padded
 

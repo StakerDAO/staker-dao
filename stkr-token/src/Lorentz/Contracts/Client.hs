@@ -22,6 +22,7 @@ import Prelude
 
 import Fmt (Buildable(..), Builder, mapF)
 import Named (arg)
+import Lens.Micro (ix)
 
 import Lorentz.Constraints (NicePackedValue)
 import Lorentz.Pack (lPackValue)
@@ -148,7 +149,7 @@ voteForProposal VoteForProposalOptions {..} = do
   STKR.AlmostStorage{..} <- STKR.getStorage vpStkr
   proposalHash <-
     maybe (fail $ "Proposal id not found " <> show vpProposalId) pure .
-    fmap (arg #proposalHash . snd) . safeHead . snd . splitAt (fromIntegral vpProposalId - 1) $ proposals
+    fmap (arg #proposalHash . snd) $ proposals ^? ix (fromIntegral vpProposalId)
   let curStage = vpEpoch*4 + 2
   let toSignB = lPackValue $ STKR.CouncilDataToSign proposalHash vpStkr curStage
   (pk, sig) <- vpSign toSignB

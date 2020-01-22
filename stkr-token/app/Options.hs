@@ -30,6 +30,7 @@ module Options
   , valueOption
   , amountOption
   , printSigsOnlyOption
+  , payloadOption
   ) where
 
 import Prelude
@@ -244,3 +245,8 @@ printSigsOnlyOption :: Opt.Parser Bool
 printSigsOnlyOption = Opt.switch $
   Opt.long "print-sigs"
     <> Opt.help "Print signatures only, do not submit data to network"
+
+payloadOption :: String -> Opt.Parser Text
+payloadOption name = Opt.strOption $ mconcat
+  [ Opt.long $ name <> "Payload"
+  , Opt.metavar "PAYLOAD" ]

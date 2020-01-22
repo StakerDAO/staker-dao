@@ -7,11 +7,10 @@ module Lorentz.Contracts.Client
   , multisignValue
   , signBytes
   , ContractAddresses (..)
-  , ViaMultisigOptions (..)
-  , callViaMultisig
   , signViaMultisig
   , VoteForProposalOptions (..)
   , voteForProposal
+  , fund
   , getTotalSupply
   , getBalance
   , mkStkrOpsOrder
@@ -95,14 +94,16 @@ signBytes sk bytes =
 
 signViaMultisig
   :: Msig.Order
-  -> ViaMultisigOptions
+  -> Address
+  -> [Tz.OrAlias (PublicKey, Signature)]
+  -> Maybe Natural
   -> TzTest (Msig.Parameter, [(PublicKey, Signature)])
-signViaMultisig order ViaMultisigOptions {..} = do
+signViaMultisig order vmoMsig vmoMsigSignatures vmoNonce = do
   let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage vmoMsig
   nonce <- maybe getNonce pure vmoNonce
   let toSign = Msig.ValueToSign vmoMsig nonce order
   let bytes = lPackValue toSign
-  pkSigs <- vmoSign bytes
+  pkSigs <- mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
   let param = Msig.Parameter order nonce pkSigs
   pure (param, pkSigs)
 
@@ -124,27 +125,15 @@ mkStkrOpsOrder stkrParam stkrAddr =
     (Msig.Unsafe stkrAddr) #cOpsTeamEntrypoint
     (STKR.EnsureOwner stkrParam)
 
-callViaMultisig
-  :: Address -> Msig.Order -> ViaMultisigOptions -> TzTest ()
-callViaMultisig from order vmo = do
-  (param, _) <- signViaMultisig order vmo
-  Tz.call from (vmoMsig vmo) param
-
-data ViaMultisigOptions = ViaMultisigOptions
-  { vmoMsig :: Address
-  , vmoSign :: ByteString -> TzTest [(PublicKey, Signature)]
-  , vmoNonce :: Maybe Natural
-  }
-
 data VoteForProposalOptions = VoteForProposalOptions
   { vpStkr :: Address
   , vpFrom :: Address
-  , vpSign :: ByteString -> TzTest (PublicKey, Signature)
+  , vpPkSig :: Tz.OrAlias (PublicKey, Signature)
   , vpEpoch :: Natural
   , vpProposalId :: Natural
   }
 
-voteForProposal :: VoteForProposalOptions -> TzTest ()
+voteForProposal :: VoteForProposalOptions -> TzTest (PublicKey, Signature)
 voteForProposal VoteForProposalOptions {..} = do
   STKR.AlmostStorage{..} <- STKR.getStorage vpStkr
   proposalHash <-
@@ -152,11 +141,14 @@ voteForProposal VoteForProposalOptions {..} = do
     fmap (arg #proposalHash . snd) $ proposals ^? ix (fromIntegral vpProposalId)
   let curStage = vpEpoch*4 + 2
   let toSignB = lPackValue $ STKR.CouncilDataToSign proposalHash vpStkr curStage
-  (pk, sig) <- vpSign toSignB
-  Tz.call vpFrom vpStkr
-    $ STKR.PublicEntrypoint
-    . STKR.VoteForProposal
-    $ (#proposalId vpProposalId, #votePk pk, #voteSig sig)
+  Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
+
+-- No dedicated parameters types for all APIs below
+
+fund :: Address -> Address -> ByteString -> TzTest ()
+fund stkr from payload =
+  Tz.call from stkr
+    $ STKR.PublicEntrypoint (STKR.Fund payload)
 
 -- We dont' bother with getBalance/getTotalSupply entrypoints ATM, simply use
 --   getStorage primitive, and return necessary values immediately.

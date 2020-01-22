@@ -10,6 +10,7 @@ module Parser
   , RotateMsigKeysOptions (..)
   , ViaMultisigOptions (..)
   , VoteForProposalOptions (..)
+  , FundOptions (..)
   , GetBalanceOptions (..)
   , GetTotalSupplyOptions (..)
   , TransferOptions (..)
@@ -51,6 +52,7 @@ data RemoteCommand
   | NewProposal NewProposalOptions
   | NewCouncil NewCouncilOptions
   | VoteForProposal VoteForProposalOptions
+  | Fund FundOptions
   | GetBalance GetBalanceOptions
   | GetTotalSupply GetTotalSupplyOptions
   | Transfer TransferOptions
@@ -121,6 +123,13 @@ data VoteForProposalOptions = VoteForProposalOptions
   , vpPkSig :: OrAlias (PublicKey, Signature)
   , vpEpoch :: Natural
   , vpProposalId :: Natural
+  , vpPrintSig :: Bool
+  }
+
+data FundOptions = FundOptions
+  { fnStkr :: OrAlias Address
+  , fnFrom :: OrAlias Address
+  , fnPayload :: Text
   }
 
 data ViaMultisigOptions = ViaMultisigOptions
@@ -187,6 +196,7 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
         , newProposalSubprs
         , newCouncilSubprs
         , voteSubprs
+        , fundSubprs
         , getBalanceSubprs
         , getTotalSupplySubprs
         , transferSubprs
@@ -253,6 +263,15 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
           <*> pkSigOption "member"
           <*> epochOption
           <*> proposalIdOption
+          <*> printSigsOnlyOption
+        )
+
+    fundSubprs = mkRemoteCmdPrs "fund" "Fund the contract" $
+      Fund <$>
+        (FundOptions
+          <$> addrOrAliasOption "stkr"
+          <*> addrOrAliasOption "from"
+          <*> payloadOption "payload"
         )
 
     printStorageSubprs = mkRemoteCmdPrs "print-storage" "Print storage of a contract" $

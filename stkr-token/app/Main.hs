@@ -14,7 +14,7 @@ import Tezos.Core (unsafeMkMutez)
 import Util.Named ((.!))
 import Tezos.Crypto (hashKey, formatPublicKey, formatSignature)
 import Util.IO (writeFileUtf8)
-import Lorentz.Value (toContractRef)
+import Lorentz.Value (toContractRef, Address)
 
 import TzTest (TzTest)
 import qualified TzTest as Tz
@@ -29,7 +29,7 @@ import Parser
   NewProposalOptions(..), RemoteAction(..), RemoteCommand(..), TzEnvConfig(..),
   ViaMultisigOptions(..), VoteForProposalOptions(..), GetBalanceOptions(..),
   GetTotalSupplyOptions (..), TransferOptions (..), SetSuccessorOptions (..),
-  WithdrawOptions (..), FreezeOptions (..),
+  WithdrawOptions (..), FreezeOptions (..), FundOptions (..),
   RotateMsigKeysOptions (..), cmdParser)
 
 main :: IO ()
@@ -55,44 +55,29 @@ localCmdRunner = \case
 signViaMultisig
   :: Msig.Order
   -> ViaMultisigOptions
-  -> TzTest (Msig.Parameter, [(L.PublicKey, L.Signature)])
+  -> TzTest (Address, (Msig.Parameter, [(L.PublicKey, L.Signature)]))
 signViaMultisig order ViaMultisigOptions {..} = do
   msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
-  Client.signViaMultisig order $ Client.ViaMultisigOptions
-    { vmoMsig = msigAddr
-    , vmoSign =
-        \bytes ->
-        mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
-    , ..
-    }
+  (msigAddr, ) <$> Client.signViaMultisig order msigAddr vmoMsigSignatures vmoNonce
 
 printPkSigs
   :: Msig.Order
   -> ViaMultisigOptions
   -> TzTest ()
 printPkSigs order vmo = do
-  (_, pkSigs) <- signViaMultisig order vmo
+  (_, (_, pkSigs)) <- signViaMultisig order vmo
   forM_ pkSigs $ \(pk, sig) ->
     putTextLn $ formatPublicKey pk <> ":" <> formatSignature sig
 
-callViaMultisig' ::
-  (L.Address -> Client.ViaMultisigOptions -> TzTest ())
-   -> ViaMultisigOptions -> TzTest ()
-callViaMultisig' f ViaMultisigOptions {..} = do
+callViaMultisig
+  :: Msig.Order
+  -> ViaMultisigOptions
+  -> TzTest ()
+callViaMultisig order vmo@(ViaMultisigOptions {..}) = do
   fromAddr <- maybe (fail "From address not specified")
                     (Tz.resolve' Tz.AddressAlias) vmoFrom
-  msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
-  f fromAddr $ Client.ViaMultisigOptions
-    { vmoMsig = msigAddr
-    , vmoSign =
-        \bytes ->
-        mapM (Tz.resolve' (Tz.PkSigAlias bytes)) vmoMsigSignatures
-    , ..
-    }
-
-callViaMultisig
-  :: Msig.Order -> ViaMultisigOptions -> TzTest ()
-callViaMultisig p = callViaMultisig' (flip Client.callViaMultisig p)
+  (msigAddr, (param, _)) <- signViaMultisig order vmo
+  Tz.call fromAddr msigAddr param
 
 handleFrozenMultisig
   :: Bool
@@ -155,12 +140,22 @@ remoteCmdRunner = \case
   VoteForProposal VoteForProposalOptions {..} -> do
     fromAddr <- Tz.resolve' Tz.AddressAlias vpFrom
     stkrAddr <- Tz.resolve' Tz.ContractAlias vpStkr
-    Client.voteForProposal $ Client.VoteForProposalOptions
-      { vpFrom = fromAddr
-      , vpStkr = stkrAddr
-      , vpSign = \toSignB -> Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
-      , ..
-      }
+    (pk, sig) <- Client.voteForProposal $ Client.VoteForProposalOptions
+                   { vpFrom = fromAddr
+                   , vpStkr = stkrAddr
+                   , ..
+                   }
+    if vpPrintSig
+      then putTextLn $ formatPublicKey pk <> ":" <> formatSignature sig
+      else
+        Tz.call fromAddr stkrAddr
+          $ STKR.PublicEntrypoint
+          . STKR.VoteForProposal
+          $ (#proposalId vpProposalId, #votePk pk, #voteSig sig)
+  Fund FundOptions {..} -> do
+    fromAddr <- Tz.resolve' Tz.AddressAlias fnFrom
+    stkrAddr <- Tz.resolve' Tz.ContractAlias fnStkr
+    Client.fund stkrAddr fromAddr (encodeUtf8 fnPayload)
   PrintStorage addr_ ->
     Tz.resolve' Tz.ContractAlias addr_ >>=
     STKR.getStorage >>= liftIO . T.putStrLn . pretty

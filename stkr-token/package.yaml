@@ -44,8 +44,13 @@ library:
     - time
     - yaml
     - vinyl
-  extra-libraries:
-    - sodium
+
+  when:
+    - condition: os(windows)
+      then:
+        extra-libraries: sodium
+      else:
+        pkg-config-dependencies: libsodium
 
 executables:
   stkr-token-cli:

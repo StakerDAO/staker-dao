@@ -60,6 +60,7 @@ executables:
       - aeson
       - yaml
       - base-noprelude >= 4.7 && < 5
+      - base16-bytestring
       - containers
       - fmt
       - stkr-token

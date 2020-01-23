@@ -354,14 +354,16 @@ stkr-token-cli transfer ${env} --stkrAlias stkr --msigAlias msig --fromAlias fro
 
 Output from each Operations team member should be collected
 and then used in a command to execute transfer command
-on the network (signatures shall be supplied just like in the above example):
+on the network (signatures shall be supplied just like in the example below):
 
 ```
 stkr-token-cli transfer ${env} --stkrAlias stkr --msigAlias msig --fromAlias from --receiverAlias receiver --value v --msigSig <..sig1..> --msigSig <..sig2..> ..  <..payer or reservoir..>
 ```
 
-where `<..payer or reservoir..>` stands for either `--payerAlias payer` or `--reservoir` and indicates the party paying for the transaction.
+where `<..payer or reservoir..>` stands for one of `--payerAlias payer`, `--payer <address>` or `--reservoir` and indicates an address
+from which STKR token will be withdrawn to be transfered to `receiver`.
 
+As usual, `from` stands for a Tezos account which is responsible for paying transaction fees.
 
 ### Freeze STKR contract
 
@@ -404,6 +406,10 @@ stkr-token-cli set-successor ${env} --stkrAlias stkr --succAlias succ --msigAlia
 `--succAlias succ` option identifies existing STKR contract, which becomes
 the successor contract of the frozen `stkr` contract.
 
+Note, that `set-successor` is applicable only in the simplest case of
+migrating STKR contract without altering its public interface.
+In more complex cases of contract upgrade, developers of update have
+to provide specific command for their case.
 
 ### Withdraw funds from STKR contract
 
@@ -424,7 +430,7 @@ stkr-token-cli withdraw ${env} --stkrAlias stkr --fromAlias from --receiverAlias
 ```
 
 `--fromAlias from` indicates the address funds are withdrawed from, `--receiverAlias receiver`
-indicates the reciever of funds, `--amount a` indicates an amount of funds withdrawed.
+indicates the reciever of funds, `--amount a` indicates an amount of μꜩ (mutez) tokens withdrawed.
 
 
 ## Other commands
@@ -459,15 +465,19 @@ Note, that, unlike in multisig case, the first call is not entirely local (it qu
 contract storage), thus we still shall supply `--fromAlias` option in this case.
 
 ### Fund the STKR contract
-[//]: # (WTF is this ???)
-The following `fund` command allows any `payer` to transfer arbitrary payload
-to STKR contract.
+
+The following `fund` command allows any `payer` to transfer some Tz coins
+to an STKR contract.
+
+Payload is not to be specified for the current version of contract and
+is left intact for future support of paychecks.
 
 ```
-stkr-token-cli fund ${env} --stkrAlias stkr --fromAlias payer --payloadPayload payload
+stkr-token-cli fund ${env} --stkrAlias stkr --fromAlias payer --amount <amount> [ --payload <.. hex ..> ]
 ```
 
-`payload` stands for arbitrary UTF-8-encoded text.
+`payload` stands for arbitrary base16-encoded text (empty by default).
+`amount` specifies amount of μꜩ (mutez) tokens to transfer
 
 ### Get balance of a STKR token address
 

@@ -29,6 +29,7 @@ import Lens.Micro (ix)
 import Lorentz.Constraints (NicePackedValue)
 import Lorentz.Pack (lPackValue)
 import Tezos.Address (Address)
+import Tezos.Core (Mutez)
 import Tezos.Crypto (KeyHash, PublicKey, SecretKey, Signature, sign, toPublic)
 
 import TzTest (TzTest)
@@ -165,12 +166,15 @@ voteForProposal vp@VoteForProposalOptions {..} = do
     . STKR.VoteForProposal
     $ (#proposalId vpProposalId, #votePk pk, #voteSig sig)
 
--- No dedicated parameters types for all APIs below
-
-fund :: Address -> Address -> ByteString -> TzTest ()
-fund stkr from payload =
-  Tz.call from stkr
-    $ STKR.PublicEntrypoint (STKR.Fund payload)
+fund :: Address -> Address -> Mutez -> ByteString -> TzTest ()
+fund stkr from amount payload = Tz.transfer $
+  Tz.TransferP
+    { tpQty = amount
+    , tpSrc = from
+    , tpDst = stkr
+    , tpBurnCap = 22
+    , tpArgument = STKR.PublicEntrypoint (STKR.Fund payload)
+    }
 
 -- We dont' bother with getBalance/getTotalSupply entrypoints ATM, simply use
 --   getStorage primitive, and return necessary values immediately.

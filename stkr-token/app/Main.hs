@@ -10,7 +10,6 @@ import Fmt (pretty, (+|), (|+))
 import qualified Lorentz as L
 import qualified Options.Applicative as Opt
 import qualified Data.Yaml as Yaml
-import Tezos.Core (unsafeMkMutez)
 import Util.Named ((.!))
 import Tezos.Crypto (hashKey, formatPublicKey, formatSignature)
 import Util.IO (writeFileUtf8)
@@ -170,7 +169,7 @@ remoteCmdRunner = \case
   Fund FundOptions {..} -> do
     fromAddr <- Tz.resolve' Tz.AddressAlias fnFrom
     stkrAddr <- Tz.resolve' Tz.ContractAlias fnStkr
-    Client.fund stkrAddr fromAddr (encodeUtf8 fnPayload)
+    Client.fund stkrAddr fromAddr fnAmount fnPayload
   PrintStorage addr_ ->
     Tz.resolve' Tz.ContractAlias addr_ >>=
     STKR.getStorage >>= liftIO . T.putStrLn . pretty
@@ -208,6 +207,5 @@ remoteCmdRunner = \case
     handleFrozenMultisig ssPrintSigs ssStkr param ssViaMultisig
   Withdraw WithdrawOptions {..} -> do
     toAddr <- Tz.resolve' Tz.AddressAlias wReceiver
-    -- FIXME??? We use `unsafeMkMutez` which throws instead of manual handling of `Nothing`
-    let param = STKR.Withdraw (#to toAddr, #amount (unsafeMkMutez wAmount))
+    let param = STKR.Withdraw (#to toAddr, #amount wAmount)
     handleFrozenMultisig wPrintSigs wStkr param wViaMultisig

@@ -44,7 +44,7 @@ import System.Environment (getEnvironment)
 import System.Exit (ExitCode)
 import Data.List (unlines)
 import System.IO
-  (hGetLine, hPutStrLn)
+  (hFlush, hGetLine, hPutStrLn)
 import System.Process
   (CreateProcess(..), StdStream(..), createProcess, proc, waitForProcess)
 
@@ -57,7 +57,7 @@ import Lorentz.Print (printLorentzContract, printLorentzValue)
 import Michelson.Typed (IsoValue, ToT)
 import Tezos.Address (Address, formatAddress, parseAddress)
 import Tezos.Core
-  (ChainId, Mutez, Timestamp, parseChainId, parseTimestamp, unsafeMkMutez)
+  (ChainId, Mutez (..), Timestamp, parseChainId, parseTimestamp, unsafeMkMutez)
 import Tezos.Crypto
   (KeyHash, PublicKey(..), SecretKey, Signature(..), blake2b, formatSecretKey,
   parseKeyHash, parsePublicKey, parseSecretKey, sign, toPublic, encodeBase58Check)
@@ -121,7 +121,7 @@ callProcessWithReadStd verbosity cmd args penv = do
       ec <- E.try @E.IOException (hGetLine h)
       case ec of
         Right c -> do
-          if verbosity == ShowBoth || verbosity == v
+          if v
             then hPutStrLn ho c
             else pure ()
           geth h ho v (c : f)
@@ -132,10 +132,15 @@ callProcessWithReadStd verbosity cmd args penv = do
         geth h ho v fInit >>= putMVar lock
       pure lock
 
-  outlock <- geth' hout stdout ShowStdOut []
-  errlock <- geth' herr stderr ShowStdErr []
+  outlock <-
+    geth' hout stdout
+      (verbosity == ShowStdOut || verbosity == ShowBoth) []
+  hFlush stdout
+  errlock <- geth' herr stderr False []
   outs <- unlines . reverse <$> takeMVar outlock
   errs <- unlines . reverse <$> takeMVar errlock
+  when (verbosity == ShowStdErr || verbosity == ShowBoth) $
+    hPutStrLn stderr errs *> hFlush stderr
   ec <- waitForProcess p
   pure (ec, outs, errs)
 
@@ -179,12 +184,18 @@ transfer
   => TransferP a -> TzTest ()
 transfer TransferP{..} = void $ do
   exec ShowBoth $
-    [ "transfer", pretty tpQty
+    [ "transfer", toText mtzShown
     , "from", formatAddress tpSrc
     , "to", formatAddress tpDst
     , "--burn-cap", show tpBurnCap
     , "--arg", toStrict $ printLorentzValue True tpArgument
     ]
+  where
+    mtz = unMutez tpQty
+    mtzShown = show (mtz `div` 1000000) <> "." <> mtzRemShown
+    mtzRemShown' = show (mtz `mod` 1000000)
+    mtzRemShown = replicate (6 - length mtzRemShown') '0' <> mtzRemShown'
+
 
 call
   :: NicePrintedValue p

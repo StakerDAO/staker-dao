@@ -22,12 +22,12 @@ module Parser
 
 import Prelude
 
-import Data.Word (Word64)
 import Options.Applicative (command, helper, info, progDesc, optional)
 import qualified Options.Applicative as Opt
 
 import Tezos.Address (Address)
 import Tezos.Crypto (KeyHash, PublicKey, Signature)
+import Tezos.Core (Mutez)
 
 import Lorentz.Contracts.STKR (TimeConfig (..))
 
@@ -102,7 +102,7 @@ data WithdrawOptions = WithdrawOptions
   , wStkr :: OrAlias Address
   , wPrintSigs :: Bool
   , wReceiver :: OrAlias Address
-  , wAmount :: Word64
+  , wAmount :: Mutez
   }
 
 data GetBalanceOptions = GetBalanceOptions
@@ -129,7 +129,8 @@ data VoteForProposalOptions = VoteForProposalOptions
 data FundOptions = FundOptions
   { fnStkr :: OrAlias Address
   , fnFrom :: OrAlias Address
-  , fnPayload :: Text
+  , fnAmount :: Mutez
+  , fnPayload :: ByteString
   }
 
 data ViaMultisigOptions = ViaMultisigOptions
@@ -271,7 +272,8 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
         (FundOptions
           <$> addrOrAliasOption "stkr"
           <*> addrOrAliasOption "from"
-          <*> payloadOption "payload"
+          <*> amountOption
+          <*> payloadOption
         )
 
     printStorageSubprs = mkRemoteCmdPrs "print-storage" "Print storage of a contract" $

@@ -123,6 +123,7 @@ data VoteForProposalOptions = VoteForProposalOptions
   , vpPkSig :: OrAlias (PublicKey, Signature)
   , vpEpoch :: Natural
   , vpProposalId :: Natural
+  , vpPrintSigs :: Bool
   }
 
 data FundOptions = FundOptions
@@ -262,6 +263,7 @@ cmdParser = info (helper <*> cmdImpl) (progDesc exeDesc)
           <*> pkSigOption "member"
           <*> epochOption
           <*> proposalIdOption
+          <*> printSigsOnlyOption
         )
 
     fundSubprs = mkRemoteCmdPrs "fund" "Fund the contract" $

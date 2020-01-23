@@ -155,12 +155,18 @@ remoteCmdRunner = \case
   VoteForProposal VoteForProposalOptions {..} -> do
     fromAddr <- Tz.resolve' Tz.AddressAlias vpFrom
     stkrAddr <- Tz.resolve' Tz.ContractAlias vpStkr
-    Client.voteForProposal $ Client.VoteForProposalOptions
-      { vpFrom = fromAddr
-      , vpStkr = stkrAddr
-      , vpSign = \toSignB -> Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
-      , ..
-      }
+    let conf = Client.VoteForProposalOptions
+          { vpFrom = fromAddr
+          , vpStkr = stkrAddr
+          , vpSign = \toSignB -> Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
+          , ..
+          }
+    if vpPrintSigs
+      then do
+        (pk, sig) <- Client.voteForProposalSig conf
+        putTextLn $ formatPublicKey pk <> ":" <> formatSignature sig
+      else
+        Client.voteForProposal conf
   Fund FundOptions {..} -> do
     fromAddr <- Tz.resolve' Tz.AddressAlias fnFrom
     stkrAddr <- Tz.resolve' Tz.ContractAlias fnStkr

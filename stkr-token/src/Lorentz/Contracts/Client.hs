@@ -12,6 +12,7 @@ module Lorentz.Contracts.Client
   , signViaMultisig
   , VoteForProposalOptions (..)
   , voteForProposal
+  , voteForProposalSig
   , fund
   , getTotalSupply
   , getBalance
@@ -145,15 +146,20 @@ data VoteForProposalOptions = VoteForProposalOptions
   , vpProposalId :: Natural
   }
 
-voteForProposal :: VoteForProposalOptions -> TzTest ()
-voteForProposal VoteForProposalOptions {..} = do
+voteForProposalSig
+  :: VoteForProposalOptions -> TzTest (PublicKey, Signature)
+voteForProposalSig VoteForProposalOptions {..} = do
   STKR.AlmostStorage{..} <- STKR.getStorage vpStkr
   proposalHash <-
     maybe (fail $ "Proposal id not found " <> show vpProposalId) pure .
     fmap (arg #proposalHash . snd) $ proposals ^? ix (fromIntegral vpProposalId)
   let curStage = vpEpoch*4 + 2
   let toSignB = lPackValue $ STKR.CouncilDataToSign proposalHash vpStkr curStage
-  (pk, sig) <- vpSign toSignB
+  vpSign toSignB
+
+voteForProposal :: VoteForProposalOptions -> TzTest ()
+voteForProposal vp@VoteForProposalOptions {..} = do
+  (pk, sig) <- voteForProposalSig vp
   Tz.call vpFrom vpStkr
     $ STKR.PublicEntrypoint
     . STKR.VoteForProposal

@@ -35,19 +35,19 @@ module Options
 
 import Prelude
 
-import Data.Word (Word64) -- FIXME!!! derive Read for Mutez in Morley
 import qualified Data.Text as T
 import qualified Data.Set as S
 import qualified Options.Applicative as Opt
 import Fmt (pretty)
 
 import Tezos.Address (Address, parseAddress)
-import Tezos.Core (Timestamp, timestampFromSeconds)
+import Tezos.Core (Mutez, mkMutez, Timestamp, timestampFromSeconds)
 import Tezos.Crypto (KeyHash, PublicKey, Signature, parsePublicKey, parseSignature, parseKeyHash)
 
 import qualified TzTest as Tz
 import TzTest (OrAlias)
 
+import qualified Data.ByteString.Base16 as B16
 import Lorentz.Contracts.STKR (TimeConfig (..))
 
 fileOutputOption :: Opt.Parser (Maybe FilePath)
@@ -235,10 +235,16 @@ valueOption = Opt.option Opt.auto $
     <> Opt.help "Value to transfer"
     <> Opt.metavar "INT"
 
-amountOption :: Opt.Parser Word64
-amountOption = Opt.option Opt.auto $
+mutezReader :: Opt.ReadM Mutez
+mutezReader = Opt.eitherReader $ \mtz ->
+  maybe (Left "Error parsing mutez") Right $ do
+    w64 <- readMaybe mtz
+    mkMutez w64
+
+amountOption :: Opt.Parser Mutez
+amountOption = Opt.option mutezReader $
   Opt.long "amount" <> Opt.short 'a'
-    <> Opt.help "Amount to withdraw"
+    <> Opt.help "Amount of mutez"
     <> Opt.metavar "INT"
 
 printSigsOnlyOption :: Opt.Parser Bool
@@ -246,7 +252,16 @@ printSigsOnlyOption = Opt.switch $
   Opt.long "print-sigs"
     <> Opt.help "Print signatures only, do not submit data to network"
 
-payloadOption :: String -> Opt.Parser Text
-payloadOption name = Opt.strOption $ mconcat
-  [ Opt.long $ name <> "Payload"
-  , Opt.metavar "PAYLOAD" ]
+base16Reader :: Opt.ReadM ByteString
+base16Reader = Opt.eitherReader $ \bs -> do
+  let (bs_, remained) = B16.decode $ encodeUtf8 bs
+  if null remained
+    then pure bs_
+    else Left $ "Unrecognized base16 string: " <> bs
+
+payloadOption :: Opt.Parser ByteString
+payloadOption = Opt.option base16Reader $ mconcat
+  [ Opt.long "payload"
+  , Opt.metavar "BASE16"
+  , Opt.value ""
+  ]

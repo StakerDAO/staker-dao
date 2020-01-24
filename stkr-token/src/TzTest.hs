@@ -29,9 +29,9 @@ module TzTest
   , OrAlias (..)
   ) where
 
-import Prelude
+import Prelude hiding (hPutStrLn, unlines)
 
-import Control.Concurrent (forkIO, killThread)
+import Control.Concurrent (forkIO)
 import qualified Control.Exception as E
 import Data.Aeson (FromJSON)
 import Data.Singletons (SingI)
@@ -42,8 +42,9 @@ import Fmt (Buildable, pretty)
 import Lens.Micro (ix)
 import System.Environment (getEnvironment)
 import System.Exit (ExitCode)
+import Data.List (unlines)
 import System.IO
-  (BufferMode(..), hGetBuffering, hGetContents, hPutStr, hSetBuffering)
+  (hFlush, hGetLine, hPutStrLn)
 import System.Process
   (CreateProcess(..), StdStream(..), createProcess, proc, waitForProcess)
 
@@ -56,7 +57,7 @@ import Lorentz.Print (printLorentzContract, printLorentzValue)
 import Michelson.Typed (IsoValue, ToT)
 import Tezos.Address (Address, formatAddress, parseAddress)
 import Tezos.Core
-  (ChainId, Mutez, Timestamp, parseChainId, parseTimestamp, unsafeMkMutez)
+  (ChainId, Mutez (..), Timestamp, parseChainId, parseTimestamp, unsafeMkMutez)
 import Tezos.Crypto
   (KeyHash, PublicKey(..), SecretKey, Signature(..), blake2b, formatSecretKey,
   parseKeyHash, parsePublicKey, parseSecretKey, sign, toPublic, encodeBase58Check)
@@ -109,9 +110,6 @@ callProcessWithReadStd
   -> Maybe [(String, String)]
   -> IO (ExitCode, String, String)
 callProcessWithReadStd verbosity cmd args penv = do
-  oBufMode <- hGetBuffering stdout
-  eBufMode <- hGetBuffering stderr
-  hSetBuffering stdout NoBuffering
   (_, Just hout, Just herr, p) <-
     createProcess $ (proc cmd args) { env = penv
                                     , std_out = CreatePipe
@@ -119,29 +117,32 @@ callProcessWithReadStd verbosity cmd args penv = do
                                     , delegate_ctlc = True}
 
   let
-    geth h ho cref v = do
-      ec <- E.try @E.IOException (hGetContents h)
+    geth h ho v f = do
+      ec <- E.try @E.IOException (hGetLine h)
       case ec of
         Right c -> do
-          modifyIORef cref (. (++ c))
-          if verbosity == ShowBoth || verbosity == v
-            then System.IO.hPutStr ho c
+          if v
+            then hPutStrLn ho c
             else pure ()
-          geth h ho cref v
-        _ -> pure ()
-  --
-  outref <- newIORef id
-  errref <- newIORef id
-  to <- forkIO $ geth hout stdout outref ShowStdOut
-  te <- forkIO $ geth herr stderr errref ShowStdErr
+          geth h ho v (c : f)
+        _ -> pure f
+    geth' h ho v fInit = do
+      lock <- newEmptyMVar
+      forkIO $
+        geth h ho v fInit >>= putMVar lock
+      pure lock
+
+  outlock <-
+    geth' hout stdout
+      (verbosity == ShowStdOut || verbosity == ShowBoth) []
+  hFlush stdout
+  errlock <- geth' herr stderr False []
+  outs <- unlines . reverse <$> takeMVar outlock
+  errs <- unlines . reverse <$> takeMVar errlock
+  when (verbosity == ShowStdErr || verbosity == ShowBoth) $
+    hPutStrLn stderr errs *> hFlush stderr
   ec <- waitForProcess p
-  killThread to
-  killThread te
-  hSetBuffering stdout oBufMode
-  hSetBuffering stderr eBufMode
-  outs <- readIORef outref
-  errs <- readIORef errref
-  pure (ec, outs [], errs [])
+  pure (ec, outs, errs)
 
 execWithShell
   :: Verbosity
@@ -181,14 +182,20 @@ data TransferP a = TransferP
 transfer
   :: NicePrintedValue a
   => TransferP a -> TzTest ()
-transfer TransferP{..} = do
-  execSilent $
-    [ "transfer", pretty tpQty
+transfer TransferP{..} = void $ do
+  exec ShowBoth $
+    [ "transfer", toText mtzShown
     , "from", formatAddress tpSrc
     , "to", formatAddress tpDst
     , "--burn-cap", show tpBurnCap
     , "--arg", toStrict $ printLorentzValue True tpArgument
     ]
+  where
+    mtz = unMutez tpQty
+    mtzShown = show (mtz `div` 1000000) <> "." <> mtzRemShown
+    mtzRemShown' = show (mtz `mod` 1000000)
+    mtzRemShown = replicate (6 - length mtzRemShown') '0' <> mtzRemShown'
+
 
 call
   :: NicePrintedValue p
@@ -314,7 +321,8 @@ resolve rt alias = do
           ContractAlias -> (["show","known","contract"], "")
           AddressAlias -> (["show","address"], "Hash: ")
           _ -> error "resolve: impossible condition"
-  key <- T.strip . lineWithPrefix prefix <$> execSilentWithStdout (params <> [alias])
+  out_ <- execSilentWithStdout (params <> [alias])
+  key <- T.strip . lineWithPrefix prefix <$> pure out_
   let errLabel = "Failed to resolve alias " <> toString alias
   case rt of
     PublicKeyAlias -> handleErr errLabel $ parsePublicKey key

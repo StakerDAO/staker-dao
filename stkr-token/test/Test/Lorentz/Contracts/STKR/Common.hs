@@ -4,6 +4,7 @@
 module Test.Lorentz.Contracts.STKR.Common
   ( OriginateParams (..)
   , originate
+  , originateWithTC
   , originateWithEmptyLedger
 
   , callWithMultisig
@@ -42,24 +43,18 @@ import qualified Lorentz.Contracts.STKR as STKR
 defTimeConfig :: STKR.TimeConfig
 defTimeConfig = STKR.TestTC { _start = dummyNow, _stageDuration = 1 }
 
-data OriginateParams = OriginateParams
-  { opTeamKeys :: [PublicKey]
-  , opCouncilKeys :: [PublicKey]
-  , opInitailLedger :: [(Address, Natural)]
-  }
-
-originate
-  :: OriginateParams
+originateWithTC
+  :: STKR.TimeConfig
+  -> OriginateParams
   -> IntegrationalScenarioM (ContractRef Multisig.Parameter, ContractRef STKR.Parameter)
-originate OriginateParams{..} = do
-  setNow dummyNow
+originateWithTC tc OriginateParams{..} = do
   msig <- lOriginate Multisig.multisigContract "Operation team multisig"
             Multisig.Storage
               { teamKeys = Set.fromList $ hashKey <$> opTeamKeys
               , currentNonce = 0
               }
             (toMutez 0)
-  stkr <- lOriginate (STKR.stkrContract defTimeConfig) "STKR token"
+  stkr <- lOriginate (STKR.stkrContract tc) "STKR token"
             STKR.Storage
               { owner = fromContractAddr msig
               , councilKeys = Set.fromList (hashKey <$> opCouncilKeys)
@@ -74,6 +69,19 @@ originate OriginateParams{..} = do
               }
             (toMutez 0)
   return (msig, stkr)
+
+data OriginateParams = OriginateParams
+  { opTeamKeys :: [PublicKey]
+  , opCouncilKeys :: [PublicKey]
+  , opInitailLedger :: [(Address, Natural)]
+  }
+
+originate
+  :: OriginateParams
+  -> IntegrationalScenarioM (ContractRef Multisig.Parameter, ContractRef STKR.Parameter)
+originate params = do
+  setNow dummyNow
+  originateWithTC defTimeConfig params
 
 originateWithEmptyLedger
   :: [PublicKey] -> [PublicKey]

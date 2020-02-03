@@ -113,9 +113,12 @@ tests:
       - morley-prelude
       - lorentz-contracts
       - microlens
+      - microlens-th
       - QuickCheck
       - quickcheck-arbitrary-adt
+      - random
       - tasty
       - tasty-hspec
       - time
+      - universum
       - vinyl

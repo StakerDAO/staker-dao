@@ -1,8 +1,6 @@
-with import (builtins.fetchGit {
-    url = https://github.com/NixOS/nixpkgs-channels;
-    ref = "nixos-unstable";
-    rev = "7827d3f4497ed722fedca57fd4d5ca1a65c38256";
-}) {};
+{sources ? import ./nix/sources.nix }:
+
+with (import sources.nixpkgs) {};
 
 let
   haskellPackages = import ./pkgs.nix {inherit haskell; inherit pkgs;};

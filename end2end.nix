@@ -1,23 +1,17 @@
-with import (builtins.fetchGit {
-    url = https://github.com/NixOS/nixpkgs-channels;
-    ref = "nixos-unstable";
-    rev = "7827d3f4497ed722fedca57fd4d5ca1a65c38256";
-}) {};
+{ sources ? import ./nix/sources.nix,
+  useTezosDerivation ? true,
+  tezosClientPath ? "tezos-client"
+}:
 
-{ useTezosDerivation ? true, tezosClientPath ? "tezos-client" }:
+with (import sources.nixpkgs) {};
 
 let
-  tezosPackaging = import (fetchFromGitHub {
-    owner = "serokell";
-    repo = "tezos-packaging";
-    rev = "7a50817b9e98845f726be842b260396c79f33eda";
-    sha256 = "1s9pd7mfr5b55jnlzrkjw1kn76n52rydslmbkzg3h8p8js4nnadj";
-  });
+  tezosPackaging = (import sources.tezos-packaging) {};
 
   stkr-token-pkgs = import ./pkgs.nix {inherit haskell; inherit pkgs;};
   drv = stkr-token-pkgs.stkr-token;
 
-  tezosClientStatic = (tezosPackaging {}).tezos-client-static;
+  tezosClientStatic = tezosPackaging.tezos-client-static;
 
   TEZOS_CLIENT =
     if useTezosDerivation

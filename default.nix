@@ -1,20 +1,18 @@
-{sources ? import ./nix/sources.nix }:
-
+{ sources ? import ./nix/sources.nix }:
 with (import sources.nixpkgs) {};
 
 let
-  haskellPackages = import ./pkgs.nix {inherit haskell; inherit pkgs;};
-  drv = haskellPackages.stkr-token;
+  haskellPackages = import ./pkgs.nix { inherit haskell pkgs; };
+  package = haskellPackages.stkr-token;
 
-  hsTools = with haskellPackages; [
-    cabal-install hpack
-    hlint hdevtools
-    morley
-  ];
+  devEnv = package.env.overrideAttrs(attr: {
+    buildInputs = with haskellPackages;
+      [
+        cabal-install hpack
+        hlint hdevtools
+        morley
+      ] ++ attr.buildInputs;
 
-  dev = drv.env.overrideAttrs(attr: {
-    buildInputs = attr.buildInputs
-               ++ hsTools;
     shellHook =
       ''
         set -eu
@@ -28,4 +26,4 @@ let
       '';
   });
 in
-  if pkgs.lib.inNixShell then dev else drv
+  if pkgs.lib.inNixShell then devEnv else package

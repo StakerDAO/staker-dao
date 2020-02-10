@@ -1,15 +1,11 @@
-{ haskell, pkgs }:
+{ sources ? import ./nix/sources.nix
+, haskell, pkgs }:
 
 with pkgs;
 
 let
-  morleyRepo =
-    builtins.fetchGit
-    { url = https://gitlab.com/morley-framework/morley.git;
-      ref = "master";
-      rev = "3a545a894499e5457f814c5637e504c93422f548";
-    };
-  morleyPkgs = import "${morleyRepo}/pkgs.nix" {inherit haskell; inherit pkgs;};
+  morleyRepo = sources.morley;
+  morleyPkgs = import "${morleyRepo}/pkgs.nix" {inherit haskell pkgs;};
 
   haskellPackages =
       with haskell.lib;

@@ -17,7 +17,14 @@ let
                ++ hsTools;
     shellHook =
       ''
-        cd stkr-token && hpack && cabal configure --extra-lib-dirs ${libsodium}/lib
+        set -eu
+
+        pushd stkr-token
+        hpack
+        cabal configure --extra-lib-dirs ${libsodium}/lib
+        popd
+
+        set +eu
       '';
   });
 in

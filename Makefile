@@ -6,8 +6,6 @@
 
 .PHONY: dev test build repl shell end2end
 
-CABAL_DEV_FLAGS =-O0 --disable-documentation
-
 # Build everything
 dev:
 	nix-shell --run 'cabal build'

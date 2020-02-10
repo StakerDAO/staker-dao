@@ -19,10 +19,10 @@ let
     else tezosClientPath;
 
 
-  testScript = writeScript "stkr-token-test-end2end-script" ''
+  testScript = writeShellScript "stkr-token-test-end2end-script" ''
     export TEZOS_CLIENT=${TEZOS_CLIENT}
     ${drv}/bin/stkr-token-test-end2end \
-      ${./stkr-token/tezos-nodes/cryptium-labs.yaml} \
+      ${./stkr-token/tezos-nodes/serokell.yaml} \
       ${./stkr-token/test-accounts/faucet.yaml} \
       300
   '';

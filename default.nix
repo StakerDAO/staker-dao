@@ -5,12 +5,14 @@ let
   haskellPackages = import ./pkgs.nix { inherit haskell pkgs; };
   package = haskellPackages.stkr-token;
 
-  devEnv = package.env.overrideAttrs(attr: {
-    buildInputs = with haskellPackages;
+  devEnv = package.env.overrideAttrs (attr: {
+    nativeBuildInputs = with haskellPackages;
       [
         cabal-install hpack
         hlint hdevtools
-        morley
+        ];
+        buildInputs = [
+          morley
       ] ++ attr.buildInputs;
 
     shellHook =

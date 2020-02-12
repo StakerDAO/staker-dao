@@ -1,14 +1,13 @@
-{ sources ? import ./nix/sources.nix,
-  useTezosDerivation ? true,
-  tezosClientPath ? "tezos-client"
-}:
+{ sources ? import ./nix/sources.nix
+, useTezosDerivation ? true
+, tezosClientPath ? "tezos-client" }:
 
 with (import sources.nixpkgs) {};
 
 let
   tezosPackaging = (import sources.tezos-packaging) {};
 
-  stkr-token-pkgs = import ./pkgs.nix {inherit haskell; inherit pkgs;};
+  stkr-token-pkgs = import ./pkgs.nix {inherit haskell pkgs;};
   drv = stkr-token-pkgs.stkr-token;
 
   tezosClientStatic = tezosPackaging.tezos-client-static;

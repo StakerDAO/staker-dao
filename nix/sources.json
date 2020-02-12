@@ -1,4 +1,11 @@
 {
+    "morley": {
+        "sha256": "0bjgsxwdgsz6s4v07h2y6v6ir0xykif7jxs00q9y8njxsjn95i4j",
+        "type": "tarball",
+        "url": "https://gitlab.com/morley-framework/morley/-/archive/3a545a894499e5457f814c5637e504c93422f548/morley-3a545a894499e5457f814c5637e504c93422f548.tar.gz",
+        "url_template": "https://gitlab.com/morley-framework/morley/-/archive/<version>/morley-<version>.tar.gz",
+        "version": "3a545a894499e5457f814c5637e504c93422f548"
+    },
     "niv": {
         "branch": "master",
         "description": "Easy dependency management for Nix projects",

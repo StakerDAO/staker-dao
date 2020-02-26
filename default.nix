@@ -7,12 +7,11 @@ let
 
   devEnv = package.env.overrideAttrs (attr: {
     nativeBuildInputs = with haskellPackages;
-      [
-        cabal-install hpack
+      [ cabal-install hpack
         hlint hdevtools
-        ];
-        buildInputs = [
-          morley
+      ] ++ attr.nativeBuildInputs;
+    buildInputs = [
+          haskellPackages.morley
       ] ++ attr.buildInputs;
 
     shellHook =

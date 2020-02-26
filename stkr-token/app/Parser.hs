@@ -29,7 +29,7 @@ import Tezos.Address (Address)
 import Tezos.Core (Mutez)
 import Tezos.Crypto (KeyHash, PublicKey, Signature)
 
-import Lorentz.Contracts.STKR (Proposal, TimeConfig(..))
+import Lorentz.Contracts.STKR (TimeConfig(..))
 
 import Options
 

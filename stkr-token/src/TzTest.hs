@@ -81,6 +81,8 @@ data Env = Env
   { envTezosClientCmd :: Text
   , envNodeAddr :: NodeAddress
   }
+  deriving stock Generic
+  deriving anyclass FromJSON
 
 getTezosClientCmd :: IO Text
 getTezosClientCmd = lookupEnv "TEZOS_CLIENT" >>=
@@ -90,13 +92,8 @@ getTezosClientCmd = lookupEnv "TEZOS_CLIENT" >>=
 
 
 mkEnv :: FilePath -> IO Env
-mkEnv nodeAddressConfigPath = do
-  nodeAddr <- Yaml.decodeFileThrow nodeAddressConfigPath
-  tezosClientCmd <- getTezosClientCmd
-  pure $ Env
-    { envTezosClientCmd = tezosClientCmd
-    , envNodeAddr = nodeAddr
-    }
+mkEnv nodeAddressConfigPath =
+  Yaml.decodeFileThrow @IO @Env nodeAddressConfigPath
 
 type TzTest a = ReaderT Env IO a
 

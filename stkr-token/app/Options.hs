@@ -35,20 +35,21 @@ module Options
 
 import Prelude
 
-import qualified Data.Text as T
 import qualified Data.Set as S
-import qualified Options.Applicative as Opt
+import qualified Data.Text as T
 import Fmt (pretty)
+import qualified Options.Applicative as Opt
 
 import Tezos.Address (Address, parseAddress)
-import Tezos.Core (Mutez, mkMutez, Timestamp, timestampFromSeconds)
-import Tezos.Crypto (KeyHash, PublicKey, Signature, parsePublicKey, parseSignature, parseKeyHash)
+import Tezos.Core (Mutez, Timestamp, mkMutez, timestampFromSeconds)
+import Tezos.Crypto
+  (KeyHash, PublicKey, Signature, parseKeyHash, parsePublicKey, parseSignature)
 
-import qualified TzTest as Tz
 import TzTest (OrAlias)
+import qualified TzTest as Tz
 
 import qualified Data.ByteString.Base16 as B16
-import Lorentz.Contracts.STKR (TimeConfig (..))
+import Lorentz.Contracts.STKR (TimeConfig(..))
 
 fileOutputOption :: Opt.Parser (Maybe FilePath)
 fileOutputOption = Opt.optional $ Opt.strOption $ mconcat
@@ -96,16 +97,19 @@ keyHashReader = Opt.eitherReader $ \addr ->
 
 data TzEnvConfig
   = YamlFile FilePath
-  | CliArgs Tz.NodeAddress
+  | CliArgs (Maybe Text, Tz.NodeAddress)
 
 tzNodeAddressOptions :: Opt.Parser TzEnvConfig
 tzNodeAddressOptions = envPrs <|> configPrs
   where
     envPrs =
       CliArgs <$>
-      (Tz.NodeAddress
-      <$> (Opt.strOption $ Opt.short 'A')
-      <*> (Opt.option (Opt.auto @Natural) $ Opt.short 'P')
+      ((,)
+      <$> (Opt.optional $ Opt.strOption $ Opt.long "tzclient")
+      <*> (Tz.NodeAddress
+        <$> (Opt.strOption $ Opt.short 'A')
+        <*> (Opt.option (Opt.auto @Natural) $ Opt.short 'P')
+        )
       )
 
     configPrs =

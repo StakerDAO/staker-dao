@@ -23,8 +23,8 @@ module Lorentz.Contracts.Client
 import Prelude
 
 import Fmt (Buildable(..), Builder, mapF)
-import Named (arg)
 import Lens.Micro (ix)
+import Named (arg)
 
 import Lorentz.Constraints (NicePackedValue)
 import Lorentz.Pack (lPackValue)

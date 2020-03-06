@@ -1,4 +1,0 @@
-# envTezosClientCmd: "tezos-client"
-envTezosClientCmd: "/Users/greg/Documents/serokell/tezos/tezos/tezos-client"
-envNode: "jupiter.serokell.io"
-envNodePort: 8732

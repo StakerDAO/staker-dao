@@ -6,14 +6,14 @@ import Prelude
 
 import qualified Data.Set as Set
 import qualified Data.Text.IO as T
+import qualified Data.Yaml as Yaml
 import Fmt (pretty, (+|), (|+))
 import qualified Lorentz as L
-import qualified Options.Applicative as Opt
-import qualified Data.Yaml as Yaml
-import Util.Named ((.!))
-import Tezos.Crypto (hashKey, formatPublicKey, formatSignature)
-import Util.IO (writeFileUtf8)
 import Lorentz.Value (toContractRef)
+import qualified Options.Applicative as Opt
+import Tezos.Crypto (formatPublicKey, formatSignature, hashKey)
+import Util.IO (writeFileUtf8)
+import Util.Named ((.!))
 
 import TzTest (TzTest)
 import qualified TzTest as Tz
@@ -24,12 +24,12 @@ import qualified Lorentz.Contracts.STKR as STKR
 import qualified Lorentz.Contracts.STKR.Client as STKR
 
 import Parser
-  (CliCommand(..), DeployOptions(..), LocalCommand(..), NewCouncilOptions(..),
-  NewProposalOptions(..), RemoteAction(..), RemoteCommand(..), TzEnvConfig(..),
-  ViaMultisigOptions(..), VoteForProposalOptions(..), GetBalanceOptions(..),
-  GetTotalSupplyOptions (..), TransferOptions (..), SetSuccessorOptions (..),
-  WithdrawOptions (..), FreezeOptions (..), FundOptions (..),
-  RotateMsigKeysOptions (..), cmdParser)
+  (CliCommand(..), DeployOptions(..), FreezeOptions(..), FundOptions(..),
+  GetBalanceOptions(..), GetTotalSupplyOptions(..), LocalCommand(..),
+  NewCouncilOptions(..), NewProposalOptions(..), RemoteAction(..),
+  RemoteCommand(..), RotateMsigKeysOptions(..), SetSuccessorOptions(..),
+  TransferOptions(..), TzEnvConfig(..), ViaMultisigOptions(..),
+  VoteForProposalOptions(..), WithdrawOptions(..), cmdParser)
 
 main :: IO ()
 main = do
@@ -38,8 +38,12 @@ main = do
     Local localCmd -> localCmdRunner localCmd
     Remote RemoteAction{..} -> do
       env <- case tzEnvConfig of
-        YamlFile path -> Tz.readEnvFromFile path
-        CliArgs tzEnv -> pure tzEnv
+        YamlFile nodeAddressFilePath ->
+          Tz.mkEnv nodeAddressFilePath
+        CliArgs (mTzClientExec, nodeAddress) ->
+          Tz.Env
+          <$> maybe Tz.getTezosClientCmd pure mTzClientExec
+          <*> pure nodeAddress
       Tz.runTzTest (remoteCmdRunner remoteCmd) env
 
 localCmdRunner :: LocalCommand -> IO ()

@@ -1,41 +1,30 @@
-with import (builtins.fetchGit {
-    url = https://github.com/NixOS/nixpkgs-channels;
-    ref = "nixos-unstable";
-    rev = "7827d3f4497ed722fedca57fd4d5ca1a65c38256";
-}) {};
+{ sources ? import ./nix/sources.nix }:
+with (import sources.nixpkgs) {};
 
 let
-  morleyRepo =
-    builtins.fetchGit
-    { url = https://gitlab.com/morley-framework/morley.git;
-      ref = "master";
-      rev = "3a545a894499e5457f814c5637e504c93422f548";
-    };
-  morleyPkgs = import "${morleyRepo}/pkgs.nix" {inherit haskell; inherit pkgs;};
+  haskellPackages = import ./pkgs.nix { inherit haskell pkgs; };
+  package = haskellPackages.stkr-token;
 
-  haskellPackages =
-      with haskell.lib;
-      haskell.packages.ghc865.override {
-        overrides = self: super:
-          { stkr-token = morleyPkgs.mkFromHpack super "stkr-token" ./. "stkr-token";
-          } // (morleyPkgs.overrides self super);
-      };
+  devEnv = package.env.overrideAttrs (attr: {
+    nativeBuildInputs = with haskellPackages;
+      [ cabal-install hpack
+        hlint hdevtools
+      ] ++ attr.nativeBuildInputs;
+    buildInputs = [
+          haskellPackages.morley
+      ] ++ attr.buildInputs;
 
-  drv = haskellPackages.stkr-token;
-
-  hsTools = with haskellPackages; [
-    cabal-install hpack
-    hlint hdevtools
-    morley
-  ];
-
-  dev = drv.env.overrideAttrs(attr: {
-    buildInputs = attr.buildInputs
-               ++ hsTools;
     shellHook =
       ''
-        cd stkr-token && hpack && cabal configure --extra-lib-dirs ${libsodium}/lib
+        set -eu
+
+        pushd stkr-token
+        hpack
+        cabal configure --extra-lib-dirs ${libsodium}/lib
+        popd
+
+        set +eu
       '';
   });
 in
-  if pkgs.lib.inNixShell then dev else drv
+  if pkgs.lib.inNixShell then devEnv else package

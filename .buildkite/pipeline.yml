@@ -3,8 +3,10 @@ env:
   NIX_PATH: nixpkgs=https://github.com/nixos/nixpkgs/archive/b640dbd00877f51616750e347a32fbcb49d2968c.tar.gz
 
 steps:
- - command: .buildkite/check-trailing-whitespace.sh
-   label: check trailing whitespace
- - commands:
-   - nix-shell --run "make test"
-   label: test
+ - label: check trailing whitespace
+   command: .buildkite/check-trailing-whitespace.sh
+ - label: nix-build
+   command: nix-build
+ - label: end2end
+   command: nix-build end2end.nix --arg useTezosDerivation true && ./result
+   branches: "master"

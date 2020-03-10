@@ -76,6 +76,7 @@ executables:
     <<: *lorentz-default-extensions
     main: Main.hs
     source-dirs: test-end2end
+    build-tools: tasty-discover:tasty-discover
 
     dependencies:
       - aeson

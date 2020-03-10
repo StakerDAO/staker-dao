@@ -102,6 +102,7 @@ tests:
 
     dependencies:
       - base-noprelude >= 4.7 && < 5
+      - bytestring
       - containers
       - fmt
       - HUnit
@@ -112,8 +113,12 @@ tests:
       - morley-prelude
       - lorentz-contracts
       - microlens
+      - microlens-th
       - QuickCheck
+      - quickcheck-arbitrary-adt
+      - random
       - tasty
       - tasty-hspec
       - time
+      - universum
       - vinyl

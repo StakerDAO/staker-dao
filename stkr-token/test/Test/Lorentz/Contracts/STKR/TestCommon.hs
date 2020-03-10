@@ -8,18 +8,17 @@ module Test.Lorentz.Contracts.STKR.TestCommon
   , spec_calcWinner
   ) where
 
-import qualified Data.Set as Set
-import qualified Data.Map as M
 import Data.Functor.Identity (Identity(..))
+import qualified Data.Map as M
+import qualified Data.Set as Set
 import Lens.Micro (ix)
 
 import Test.Hspec (Spec, it)
-import Test.HUnit ((@?=), (@?), assertFailure)
 import qualified Test.Hspec.QuickCheck as HQ
-import Test.QuickCheck (Arbitrary(..), Gen)
+import Test.HUnit (assertFailure, (@?), (@?=))
 
+import Tezos.Core (Timestamp(..), parseTimestamp, timestampToSeconds)
 import Tezos.Crypto (hashKey)
-import Tezos.Core (Timestamp (..), timestampToSeconds, parseTimestamp)
 
 import qualified Data.Time.Calendar as C
 import qualified Data.Time.Clock as C
@@ -28,13 +27,13 @@ import qualified Data.Time.Clock.POSIX as C
 import Michelson.Interpret (ContractEnv(..))
 import Michelson.Text (MText, mkMTextUnsafe)
 
-import Lorentz (KeyHash, (:!), Rec (..))
+import Lorentz ((:!), KeyHash, Rec(..))
 import qualified Lorentz as L
 import Lorentz.Test
 
-import Lorentz.Contracts.STKR.Storage
 import Lorentz.Contracts.STKR.Governance
 import Lorentz.Contracts.STKR.Misc
+import Lorentz.Contracts.STKR.Storage
 
 import Test.Lorentz.Contracts.STKR.Common (newKeypair)
 
@@ -163,11 +162,6 @@ spec_checkPkCanVote = do
       let initStack = (Identity pk :& Identity testStorage :& RNil)
       resStack <- L.interpretLorentzInstr dummyContractEnv (checkPkCanVote @'[]) initStack
       case resStack of RNil -> return True
-
-instance Arbitrary Natural where
-  arbitrary =
-    (\i -> fromInteger $ if i <= 0 then 1-i else i)
-    <$> (arbitrary :: Gen Integer)
 
 spec_splitCounter :: Spec
 spec_splitCounter =

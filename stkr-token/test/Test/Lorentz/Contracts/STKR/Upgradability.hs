@@ -5,15 +5,15 @@ module Test.Lorentz.Contracts.STKR.Upgradability
   , spec_Successor
   ) where
 
-import Prelude hiding (drop)
+import Prelude
 
-import qualified Data.Map as Map
-
-import Lorentz hiding ((>>), lambda)
+import Lorentz hiding (lambda, (>>))
+import qualified Lorentz as L
+import Lorentz.Base (( # ))
 import Lorentz.Contracts.Consumer
 import Lorentz.Test
-import Test.Hspec (Spec, describe, it)
-import Text.Hex (decodeHex)
+import Test.Hspec (Spec, it)
+import qualified Test.Hspec.QuickCheck as HQ
 import Tezos.Crypto (SecretKey, toPublic)
 import Util.Named ((.!))
 
@@ -21,8 +21,8 @@ import qualified Lorentz.Contracts.Multisig as Multisig
 import qualified Lorentz.Contracts.STKR as STKR
 
 import Test.Lorentz.Contracts.STKR.Common
-  (OriginateParams(..), callWithMultisig, callWithMultisig', failWhenNot,
-  newKeypair, originate, originateWithEmptyLedger, wallet1, wallet2, expectSuccess)
+  (OriginateParams(..), callWithMultisig, callWithMultisig', expectSuccess,
+  failWhenNot, newKeypair, originate, originateWithEmptyLedger, wallet1)
 
 callSetSuccessor
   :: ContractRef Multisig.Parameter
@@ -50,19 +50,18 @@ spec_FreezeEntrypoint = do
     validate . Right . lExpectStorageUpdate stkr $
       \STKR.Storage{..} -> failWhenNot frozen "Storage field haven't updated"
 
-  -- TODO: looks like property test, but don't want to mess with it for now
-  describe "all Public and OpsTeam entrypoint fails when contract is frozen" $ do
-    it "fund entrypoint fails if contract is frozen" . integrationalTestExpectation $ do
-      (msig, stkr) <- originateWithEmptyLedger teamPks []
-      callWithMultisig msig 1 teamSks stkr $ STKR.Freeze ()
+  it "fund entrypoint fails if contract is frozen" . integrationalTestExpectation $ do
+    (msig, stkr) <- originateWithEmptyLedger teamPks []
+    callWithMultisig msig 1 teamSks stkr $ STKR.Freeze ()
 
-      lTransfer (#from .! genesisAddress) (#to .! stkr) (toMutez 100) $
-        STKR.PublicEntrypoint $ STKR.Fund "dummybytestring"
+    lTransfer (#from .! genesisAddress) (#to .! stkr) (toMutez 100) $
+      STKR.PublicEntrypoint $ STKR.Fund "dummybytestring"
 
-      validate . Left $
-        lExpectCustomError #contractFrozen ()
+    validate . Left $
+      lExpectCustomError #contractFrozen ()
 
-    it "newProposal call fails if contract is frozen" . integrationalTestExpectation $ do
+  HQ.prop "fails when opeations team entrypoint is called on frozen contract" $
+    \(opsParam :: STKR.OpsTeamEntrypointParam) -> integrationalTestProperty $ do
       (msig, stkr) <- originate $ OriginateParams
         { opTeamKeys = teamPks
         , opCouncilKeys = []
@@ -70,45 +69,23 @@ spec_FreezeEntrypoint = do
         }
       callWithMultisig msig 1 teamSks stkr $ STKR.Freeze ()
 
-      let hash = STKR.Sha256Hash $ fromMaybe (error "tezosWpUrlHash: unexpected") . decodeHex $
-            "be7663e0ef87d51ab149a60dfad4df5940d30395ba287d9907f8d66ce5061d96"
-      let url = [mt|https://tezos.com/static/white_paper-2dc8c02267a8fb86bd67a108199441bf.pdf|]
-      let tezosWpUrlHash = (hash, url)
-      let newUrls = Map.singleton [mt|"tezos-wp|] tezosWpUrlHash
-      let newProposal =
-            ( #description [mt|"First"|]
-            , #newPolicy (#urls newUrls)
-            )
-      callWithMultisig msig 2 teamSks stkr $ STKR.NewProposal newProposal
+      callWithMultisig msig 2 teamSks stkr opsParam
 
       validate . Left $
         lExpectCustomError #contractFrozen ()
 
-    it "transfer call fails if contract is frozen" $
-      integrationalTestExpectation $ do
-        let transferParam = (#from .! wallet1, #to .! wallet2, #value .! 100)
-        (msig, stkr) <- originate $ OriginateParams
-          { opTeamKeys = teamPks
-          , opCouncilKeys = []
-          , opInitailLedger = [(wallet1, 150)]
-          }
-        callWithMultisig msig 1 teamSks stkr $ STKR.Freeze ()
-        callWithMultisig msig 2 teamSks stkr $ STKR.Transfer transferParam
-        validate . Left $
-          lExpectCustomError #contractFrozen ()
+  it "getTotalSupply call fails if contract is frozen" $
+    integrationalTestExpectation $ do
+      (msig, stkr) <- originateWithEmptyLedger teamPks []
+      consumer <- lOriginateEmpty contractConsumer "consumer"
 
-    it "getTotalSupply call fails if contract is frozen"
-      . integrationalTestExpectation $ do
-        (msig, stkr) <- originateWithEmptyLedger teamPks []
-        consumer <- lOriginateEmpty contractConsumer "consumer"
+      callWithMultisig msig 1 teamSks stkr $ STKR.Freeze ()
+      lCall stkr
+        . STKR.PublicEntrypoint
+        . STKR.GetTotalSupply $ L.mkView () consumer
 
-        callWithMultisig msig 1 teamSks stkr $ STKR.Freeze ()
-        lCall stkr
-          . STKR.PublicEntrypoint
-          . STKR.GetTotalSupply $ mkView () consumer
-
-        validate . Left $
-          lExpectCustomError #contractFrozen ()
+      validate . Left $
+        lExpectCustomError #contractFrozen ()
 
 spec_Successor :: Spec
 spec_Successor = do
@@ -139,8 +116,8 @@ spec_Successor = do
   it "set successor lambda to storage even after one already present" $
     integrationalTestExpectation $ do
       (msig, stkr) <- originateWithEmptyLedger teamPks []
-      let successorLambda1 = push (1 :: Natural) # drop # STKR.successorLambda stkr
-      let successorLambda2 = push (2 :: Natural) # drop # STKR.successorLambda stkr
+      let successorLambda1 = L.push (1 :: Natural) # L.drop # STKR.successorLambda stkr
+      let successorLambda2 = L.push (2 :: Natural) # L.drop # STKR.successorLambda stkr
 
       validate . Right . expectSuccess $
         failWhenNot (successorLambda1 /= successorLambda2) "Lamdas are equal"
@@ -154,7 +131,6 @@ spec_Successor = do
       validate . Right . lExpectStorageUpdate stkr $ \STKR.Storage{..} ->
         failWhenNot (successor == Just successorLambda2) "Storage field haven't updated"
 
-  -- TODO: looks like another property test
   it "executes successor lambda when public entrypoint is called" $
     integrationalTestExpectation $ do
       let valueOnStkr1 = 100
@@ -178,17 +154,16 @@ spec_Successor = do
       lCall stkr1
         . STKR.PublicEntrypoint
         . STKR.GetBalance
-        $ mkView (#owner .! wallet1) consumer
+        $ L.mkView (#owner .! wallet1) consumer
 
       validate . Right . lExpectConsumerStorage consumer $ \consStorage ->
         failWhenNot (consStorage == [valueOnStkr2]) "Call not forwarded to successor"
 
-  it "fails when non public entrypoint is called on contract with successor" $
-    integrationalTestExpectation $ do
+  HQ.prop "fails when non public entrypoint is called on contract with successor" $
+    \(opsParam :: STKR.OpsTeamEntrypointParam) -> integrationalTestProperty $ do
       (msig, stkr) <- originateWithEmptyLedger teamPks []
       let successorLambda = STKR.successorLambda stkr
-      let transferParam = (#from .! wallet1, #to .! wallet2, #value .! 100)
       callWithMultisig msig 1 teamSks stkr $ STKR.Freeze ()
       callSetSuccessor msig 2 teamSks stkr successorLambda
-      callWithMultisig msig 3 teamSks stkr $ STKR.Transfer transferParam
+      callWithMultisig msig 3 teamSks stkr opsParam
       validate . Left $ lExpectCustomError #contractFrozen ()

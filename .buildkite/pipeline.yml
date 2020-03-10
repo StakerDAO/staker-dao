@@ -1,12 +1,13 @@
-env:
-  # NIX_PATH: nixpkgs=channel:nixos-unstable
-  NIX_PATH: nixpkgs=https://github.com/nixos/nixpkgs/archive/b640dbd00877f51616750e347a32fbcb49d2968c.tar.gz
-
 steps:
  - label: check trailing whitespace
    command: .buildkite/check-trailing-whitespace.sh
- - label: nix-build
-   command: nix-build
+
+ - label: build
+   commands: nix-build -A all-components
+
+ - label: test
+   commands: nix-build -A run-test
+
  - label: end2end
    command: nix-build end2end.nix --arg useTezosDerivation true && ./result
    branches: "master"

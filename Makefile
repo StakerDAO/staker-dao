@@ -27,7 +27,7 @@ shell:
 	nix-shell
 
 build:
-	nix-build
+	nix-build -A stkr-token-cli
 
 run:
 	nix-shell --run "cd stkr-token && cabal run stkr-token-cli"

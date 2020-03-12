@@ -1,30 +1,29 @@
-{ sources ? import ./nix/sources.nix }:
-with (import sources.nixpkgs) {};
+rec {
+  sources = import ./nix/sources.nix;
+  haskellNixArgs = import sources."haskell.nix";
+  pkgs = import sources.nixpkgs haskellNixArgs;
+  haskell-nix = pkgs.haskell-nix;
 
-let
-  haskellPackages = import ./pkgs.nix { inherit haskell pkgs; };
-  package = haskellPackages.stkr-token;
+  # haskell.nix package set
+  hs-pkgs = import ./stkr-token { inherit pkgs; };
 
-  devEnv = package.env.overrideAttrs (attr: {
-    nativeBuildInputs = with haskellPackages;
-      [ cabal-install hpack
-        hlint hdevtools
-      ] ++ attr.nativeBuildInputs;
-    buildInputs = [
-          haskellPackages.morley
-      ] ++ attr.buildInputs;
+  # stkr-token package
+  stkr-token = hs-pkgs.stkr-token;
 
-    shellHook =
-      ''
-        set -eu
+  all-components = with stkr-token.components;
+    [ library ] ++ pkgs.lib.attrValues exes ++ pkgs.lib.attrValues tests;
+  run-test = stkr-token.checks.stkr-token-test;
+  stkr-token-cli = stkr-token.components.exes.stkr-token-cli;
+  test-end2end = stkr-token.components.exes.stkr-token-test-end2end;
 
-        pushd stkr-token
-        hpack
-        cabal configure --extra-lib-dirs ${libsodium}/lib
-        popd
+  # nix-shell environment with installed dependencies
+  shell = hs-pkgs.shellFor {
+    packages = ps: [ ps.stkr-token ];
+    buildInputs = [ haskell-nix.cabal-install ];
 
-        set +eu
-      '';
-  });
-in
-  if pkgs.lib.inNixShell then devEnv else package
+    # shell environment does not include packages listed
+    # in 'build-tools', so they have to be built locally by cabal
+    # https://github.com/input-output-hk/haskell.nix/issues/231
+    exactDeps = false;
+  };
+}

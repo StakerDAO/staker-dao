@@ -7,8 +7,7 @@ with (import sources.nixpkgs) {};
 let
   tezosPackaging = (import sources.tezos-packaging) {};
 
-  stkr-token-pkgs = import ./pkgs.nix {inherit haskell pkgs;};
-  drv = stkr-token-pkgs.stkr-token;
+  drv = (import ./default.nix).test-end2end;
 
   tezosClientStatic = tezosPackaging.tezos-client-static;
 

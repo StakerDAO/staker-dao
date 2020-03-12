@@ -1,0 +1,26 @@
+# When you update resolver or extra-deps you might need to update
+# haskell.nix version to make sure it contains the latest hackage
+# and stackage indexes
+resolver: lts-13.22
+
+extra-deps:
+# morley
+- git: https://gitlab.com/morley-framework/morley.git
+  commit: 3a545a894499e5457f814c5637e504c93422f548
+  subdirs:
+  - .
+  - prelude
+  - lorentz-contracts
+
+# required for morley
+- aeson-options-0.1.0
+- base58-bytestring-0.1.0
+- constraints-0.11
+- hex-text-0.1.0.0
+- pretty-terminal-0.1.0.0
+- show-type-0.1.1
+
+# optional nix support (for `stack --nix`)
+nix:
+  pure: false
+  packages: [ pkg-config libsodium ]

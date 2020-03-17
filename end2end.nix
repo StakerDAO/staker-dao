@@ -16,11 +16,20 @@ let
     then "${tezosClientStatic}/bin/tezos-client"
     else tezosClientPath;
 
+  testConfig = writeTextFile {
+    name = "test-config.yaml";
+    text = ''
+      envTezosClientCmd: "${TEZOS_CLIENT}"
+      envNodeAddr:
+        naHost: "carthage.testnet.tezos.serokell.team"
+        naPort: 8732
+    '';
+  };
+
 
   testScript = writeShellScript "stkr-token-test-end2end-script" ''
-    export TEZOS_CLIENT=${TEZOS_CLIENT}
     ${drv}/bin/stkr-token-test-end2end \
-      ${./stkr-token/tezos-nodes/serokell.yaml} \
+      ${testConfig} \
       ${./stkr-token/test-accounts/faucet.yaml} \
       300
   '';

@@ -49,6 +49,7 @@ import System.Exit (ExitCode)
 import System.IO (hFlush, hGetLine, hPutStrLn)
 import System.Process
   (CreateProcess(..), StdStream(..), createProcess, proc, waitForProcess)
+import Text.Hex (encodeHex)
 
 import qualified Crypto.Error as CE
 import qualified Crypto.PubKey.Ed25519 as Ed25519
@@ -63,7 +64,7 @@ import Tezos.Core
 import Tezos.Crypto
   (KeyHash, PublicKey(..), SecretKey, Signature(..), blake2b,
   encodeBase58Check, formatSecretKey, parseKeyHash, parsePublicKey,
-  parseSecretKey, sign, toPublic)
+  parseSecretKey, parseSignature, sign)
 
 import Data.Maybe (fromJust)
 import System.Console.Haskeline (defaultSettings, getPassword, runInputT)
@@ -285,47 +286,74 @@ lineWithPrefix prefix txt
       mapMaybe (T.stripPrefix prefix) (lines txt)
 
 -- Tezos.Crypto exports SecretKey abstractly, don't bother to change it
-mySignPK :: ByteString -> ByteString -> (PublicKey, Signature)
-mySignPK skBytes bytes = (PublicKey pk, Signature . Ed25519.sign sk pk . blake2b $ bytes)
+mySignPK :: ByteString -> ByteString -> Signature
+mySignPK skBytes bytes = Signature . Ed25519.sign sk pk . blake2b $ bytes
   where
     sk = CE.throwCryptoError $ Ed25519.secretKey skBytes
     pk = Ed25519.toPublic sk
 
+
+signWithTezosClient :: Text -> ByteString -> TzTest Signature
+signWithTezosClient accountName bytes = do
+  let hexString = encodeHex bytes
+  signatureString <- lineWithPrefix "Signature: " . fst <$>
+    exec ShowStdErr
+      [ "sign", "bytes", "0x" <> hexString
+      , "for", accountName]
+  either ( fail . ("Signature parsing failed: " <>) . pretty) pure $ parseSignature signatureString
+
 generateSigPK
   :: Text -> ByteString -> TzTest (PublicKey, Signature)
-generateSigPK alias bytes = do
-  tzsk <- T.strip . lineWithPrefix "Secret Key: " <$> execSilentWithStdout ["show","address", alias, "-S"]
-  if "encrypted:" `T.isPrefixOf` tzsk
-    then
+generateSigPK alias toSign = do
+  cmdOut <- execSilentWithStdout ["show","address", alias, "-S"]
+  let pkString = lineWithPrefix "Public Key: " cmdOut
+  pk <- either (fail . pretty) pure $ parsePublicKey pkString
+  let tzsk = lineWithPrefix "Secret Key: " cmdOut
+  -- tzsk is in format keyType:publicKey
+  let (keyType, left) = T.breakOn ":" tzsk
+  let key = T.tail left -- TODO proper parsing and error handling
+  let chosenMethod =
+        case keyType of
+          "ledger" -> signWithLedger alias
+          "encrypted" -> signEncrypted key
+          "unencrypted" -> signUnencrypted key
+          _ -> const $ fail "Error on secret key lookup, secret key type not recognized"
+  signature <- chosenMethod toSign
+  pure (pk, signature)
+  where
+    signWithLedger :: Text -> ByteString -> TzTest Signature
+    signWithLedger ledgerAccount bytes = do
+      putStrLn $ "Signing with secret key " <> ledgerAccount <> " stored on Ledger"
+      putStrLn $ ("Please approve signing operation on Ledger" :: Text)
+      signWithTezosClient ledgerAccount bytes
+
+    signEncrypted :: Text -> ByteString -> TzTest Signature
+    signEncrypted encryptedSk bytes =
       let attempt n = do
             mbPass <- liftIO
               $ runInputT defaultSettings (getPassword (Just '*')
               $ "Please, enter the password for " <> toString alias <> ": ")
             when (isNothing mbPass) $ fail "Failed to enter password"
-            eErrSkBytes <- liftIO
-              $ decipherTzEncKey (T.drop (length @String "encrypted:") tzsk) (fromJust $ fromString <$> mbPass)
+            eErrSkBytes <- liftIO $ decipherTzEncKey  encryptedSk (fromJust $ fromString <$> mbPass)
             case eErrSkBytes of
-              Left err -> if n > 0
-                            then
-                              let nn = n - 1 in
-                               do liftIO $ putStrLn $ formatPrompt nn
-                                  attempt nn
-                            else
-                              fail $ show err
-              Right r -> return $ mySignPK r bytes
+              Left err ->
+                if n > 0
+                then do
+                  let nextAttempt = n - 1
+                  liftIO . putStrLn . formatPrompt $ nextAttempt
+                  attempt nextAttempt
+                else fail $ show err
+              Right r -> pure $ mySignPK r bytes
       in attempt (5 :: Int)
-    else
-      -- we don't bother to check "unencrypted:" prefix, if it's
-      --   different, the parse fails anyway
-      let skt = parseSecretKey (T.drop (length @String "unencrypted:") tzsk)
-      in case skt of
-           Left err -> fail $ show err
-           Right sk -> return (toPublic sk, sign sk bytes)
-   where
-     formatPrompt n =
-       "The password is wrong, try again (" ++ show n ++ " attempt" ++
-          if n > 1 then "s remain)" else " remains)"
 
+    formatPrompt n =
+      "The password is wrong, try again (" ++ show n ++ " attempt" ++
+        if n > 1 then "s remain)" else " remains)"
+
+    signUnencrypted :: Text -> ByteString -> TzTest Signature
+    signUnencrypted plainSk bytes =
+      either (fail .  pretty) (pure . flip sign bytes) $
+        parseSecretKey plainSk
 
 resolve
   :: ResolveType t -> Text -> TzTest t

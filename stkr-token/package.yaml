@@ -44,6 +44,7 @@ library:
     - time
     - yaml
     - vinyl
+    - hex-text
 
   when:
     - condition: os(windows)
@@ -69,6 +70,8 @@ executables:
       - optparse-applicative
       - turtle
       - text
+      - hex-text
+
     ghc-options:
       - -threaded # IMPORTANT!
 

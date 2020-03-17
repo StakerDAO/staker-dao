@@ -29,10 +29,10 @@
         "homepage": "",
         "owner": "serokell",
         "repo": "tezos-packaging",
-        "rev": "7a50817b9e98845f726be842b260396c79f33eda",
-        "sha256": "1s9pd7mfr5b55jnlzrkjw1kn76n52rydslmbkzg3h8p8js4nnadj",
+        "rev": "6ae4a8c7fd9b020dd4b39572ed68878cf55c649a",
+        "sha256": "1afskbri45lwg3nffv7hz10y1jbaqa8rw3gljm1b5gz33cyq1adg",
         "type": "tarball",
-        "url": "https://github.com/serokell/tezos-packaging/archive/7a50817b9e98845f726be842b260396c79f33eda.tar.gz",
+        "url": "https://github.com/serokell/tezos-packaging/archive/6ae4a8c7fd9b020dd4b39572ed68878cf55c649a.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

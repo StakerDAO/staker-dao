@@ -5,11 +5,11 @@
 with (import sources.nixpkgs) {};
 
 let
-  tezosPackaging = (import sources.tezos-packaging) {};
+  tezosPackaging = (import sources.tezos-packaging) { pkgs = (import sources.nixpkgs) {}; };
 
   drv = (import ./default.nix).test-end2end;
 
-  tezosClientStatic = tezosPackaging.tezos-client-static;
+  tezosClientStatic = tezosPackaging.binaries-drv;
 
   TEZOS_CLIENT =
     if useTezosDerivation

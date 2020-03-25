@@ -3,11 +3,12 @@ module Lorentz.Contracts.STKR.Misc.TypeDefs
   ) where
 
 import Prelude
+
 import Lorentz
 
 newtype EnsureOwner a = EnsureOwner { unEnsureOwner :: a }
   deriving stock Generic
-  deriving anyclass IsoValue
+  deriving anyclass (IsoValue, HasTypeAnn)
 
 -- TODO: Resulting doc render not tested. Take care of this when autodoc is ready.
 instance (TypeHasDoc a) => TypeHasDoc (EnsureOwner a) where

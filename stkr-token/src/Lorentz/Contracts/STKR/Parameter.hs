@@ -13,9 +13,10 @@ module Lorentz.Contracts.STKR.Parameter
 import Lorentz
 
 import Lorentz.Contracts.STKR.Funding.TypeDefs (WithdrawParams)
-import Lorentz.Contracts.STKR.Token.TypeDefs (TransferParams, GetBalanceParams)
-import Lorentz.Contracts.STKR.Governance.TypeDefs (Proposal, VoteForProposalParams)
+import Lorentz.Contracts.STKR.Governance.TypeDefs
+  (Proposal, VoteForProposalParams)
 import Lorentz.Contracts.STKR.Misc.TypeDefs (EnsureOwner(..))
+import Lorentz.Contracts.STKR.Token.TypeDefs (GetBalanceParams, TransferParams)
 
 data OpsTeamEntrypointParam
   = NewCouncil (Set KeyHash)
@@ -23,7 +24,7 @@ data OpsTeamEntrypointParam
   | NewProposal Proposal
   | Freeze ()
   deriving stock Generic
-  deriving anyclass IsoValue
+  deriving anyclass (IsoValue, HasTypeAnn)
 
 data PublicEntrypointParam
   = VoteForProposal VoteForProposalParams
@@ -31,20 +32,20 @@ data PublicEntrypointParam
   | GetTotalSupply (View () Natural)
   | Fund ByteString
   deriving stock Generic
-  deriving anyclass IsoValue
+  deriving anyclass (IsoValue, HasTypeAnn)
 
 data PermitOnFrozenParam
   = Withdraw WithdrawParams
   | SetSuccessor ("successor" :! (Lambda PublicEntrypointParam Operation))
   deriving stock Generic
-  deriving anyclass IsoValue
+  deriving anyclass (IsoValue, HasTypeAnn)
 
 data Parameter
   = PublicEntrypoint PublicEntrypointParam
   | OpsTeamEntrypoint (EnsureOwner OpsTeamEntrypointParam)
   | PermitOnFrozen (EnsureOwner PermitOnFrozenParam)
   deriving stock Generic
-  deriving anyclass IsoValue
+  deriving anyclass (IsoValue, HasTypeAnn)
 
-instance ParameterEntryPoints Parameter where
-  parameterEntryPoints = pepRecursive
+instance ParameterHasEntryPoints Parameter where
+  type ParameterEntryPointsDerivation Parameter = EpdRecursive

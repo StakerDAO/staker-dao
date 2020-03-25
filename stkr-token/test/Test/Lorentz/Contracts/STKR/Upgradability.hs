@@ -7,14 +7,13 @@ module Test.Lorentz.Contracts.STKR.Upgradability
 
 import Prelude
 
+import CryptoInterop (SecretKey, toPublic)
 import Lorentz hiding (lambda, (>>))
 import qualified Lorentz as L
 import Lorentz.Base (( # ))
-import Lorentz.Contracts.Consumer
 import Lorentz.Test
 import Test.Hspec (Spec, it)
 import qualified Test.Hspec.QuickCheck as HQ
-import Tezos.Crypto (SecretKey, toPublic)
 import Util.Named ((.!))
 
 import qualified Lorentz.Contracts.Multisig as Multisig
@@ -25,10 +24,10 @@ import Test.Lorentz.Contracts.STKR.Common
   failWhenNot, newKeypair, originate, originateWithEmptyLedger, wallet1)
 
 callSetSuccessor
-  :: ContractRef Multisig.Parameter
+  :: TAddress Multisig.Parameter
   -> Natural
   -> [SecretKey]
-  -> ContractRef STKR.Parameter
+  -> TAddress STKR.Parameter
   -> Lambda STKR.PublicEntrypointParam Operation
   -> IntegrationalScenarioM ()
 callSetSuccessor msig nonce teamSecretKeys stkr lambda = do
@@ -54,7 +53,7 @@ spec_FreezeEntrypoint = do
     (msig, stkr) <- originateWithEmptyLedger teamPks []
     callWithMultisig msig 1 teamSks stkr $ STKR.Freeze ()
 
-    lTransfer (#from .! genesisAddress) (#to .! stkr) (toMutez 100) $
+    lTransfer (#from .! genesisAddress) (#to .! stkr) (toMutez 100) CallDefault $
       STKR.PublicEntrypoint $ STKR.Fund "dummybytestring"
 
     validate . Left $
@@ -80,7 +79,7 @@ spec_FreezeEntrypoint = do
       consumer <- lOriginateEmpty contractConsumer "consumer"
 
       callWithMultisig msig 1 teamSks stkr $ STKR.Freeze ()
-      lCall stkr
+      lCallDef stkr
         . STKR.PublicEntrypoint
         . STKR.GetTotalSupply $ L.mkView () consumer
 
@@ -151,7 +150,7 @@ spec_Successor = do
       callWithMultisig msig1 1 [sk1] stkr1 $ STKR.Freeze ()
       callSetSuccessor msig1 2 [sk1] stkr1 $ STKR.successorLambda stkr2
       consumer <- lOriginateEmpty @Natural contractConsumer "consumer"
-      lCall stkr1
+      lCallDef stkr1
         . STKR.PublicEntrypoint
         . STKR.GetBalance
         $ L.mkView (#owner .! wallet1) consumer

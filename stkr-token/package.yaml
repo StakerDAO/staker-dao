@@ -20,6 +20,7 @@ dependencies:
   - base-noprelude >= 4.7 && < 5
   - morley
   - morley-prelude
+  - lorentz
   - named
   - hex-text
 
@@ -31,6 +32,7 @@ library:
     - data-default
     - morley
     - morley-prelude
+    - lorentz
     # deps for tztest
     - aeson
     - bytestring
@@ -115,7 +117,6 @@ tests:
       - stkr-token
       - morley
       - morley-prelude
-      - lorentz-contracts
       - microlens
       - microlens-th
       - QuickCheck

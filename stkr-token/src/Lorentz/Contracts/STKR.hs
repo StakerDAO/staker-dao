@@ -6,13 +6,13 @@ module Lorentz.Contracts.STKR
 
 import Lorentz
 
+import Lorentz.Contracts.STKR.Funding as Exports
 import Lorentz.Contracts.STKR.Governance as Exports
 import Lorentz.Contracts.STKR.Misc.EnsureOwner (withOwnerEnsured)
 import Lorentz.Contracts.STKR.Misc.Upgradability
   (ensureNotFrozen, forwardToSuccessor, freeze, setSuccessor, successorLambda)
 import Lorentz.Contracts.STKR.Parameter as Exports
 import Lorentz.Contracts.STKR.Storage as Exports
-import Lorentz.Contracts.STKR.Funding as Exports
 import qualified Lorentz.Contracts.STKR.Token as Token
 
 
@@ -61,5 +61,5 @@ entrypointRouter timeConfig = do
     , #cPermitOnFrozen /-> withOwnerEnsured frozenRouter
     )
 
-stkrContract :: TimeConfig -> Contract Parameter Storage
+stkrContract :: TimeConfig -> ContractCode Parameter Storage
 stkrContract timeConfig = unpair # entrypointRouter timeConfig

@@ -22,8 +22,8 @@ module Test.Lorentz.Contracts.STKR.Common
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+import CryptoInterop (PublicKey(..), SecretKey, detSecretKey, hashKey, toPublic)
 import qualified Data.ByteString as BS
-import Data.Vinyl.Derived (Label)
 import Lens.Micro.Internal (At(..), Index, IxValue, Ixed(..))
 import Lorentz.Contracts.Client (multisignValue)
 import Lorentz.Contracts.Multisig
@@ -34,7 +34,6 @@ import Michelson.Test.Dummy (dummyNow)
 import Named (Name(..), NamedF)
 import Test.QuickCheck (Arbitrary(..), arbitrarySizedNatural)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary, genericArbitrary)
-import Tezos.Crypto (PublicKey, SecretKey, detSecretKey, hashKey, toPublic)
 import Util.Named ((.!))
 
 import qualified Lorentz.Contracts.Multisig as Multisig
@@ -46,7 +45,7 @@ defTimeConfig = STKR.TestTC { _start = dummyNow, _stageDuration = 1 }
 originateWithTC
   :: STKR.TimeConfig
   -> OriginateParams
-  -> IntegrationalScenarioM (ContractRef Multisig.Parameter, ContractRef STKR.Parameter)
+  -> IntegrationalScenarioM (TAddress Multisig.Parameter, TAddress STKR.Parameter)
 originateWithTC tc OriginateParams{..} = do
   msig <- lOriginate Multisig.multisigContract "Operation team multisig"
             Multisig.Storage
@@ -56,7 +55,7 @@ originateWithTC tc OriginateParams{..} = do
             (toMutez 0)
   stkr <- lOriginate (STKR.stkrContract tc) "STKR token"
             STKR.Storage
-              { owner = fromContractAddr msig
+              { owner = unTAddress msig
               , councilKeys = Set.fromList (hashKey <$> opCouncilKeys)
               , proposals = []
               , votes = Map.empty
@@ -78,14 +77,14 @@ data OriginateParams = OriginateParams
 
 originate
   :: OriginateParams
-  -> IntegrationalScenarioM (ContractRef Multisig.Parameter, ContractRef STKR.Parameter)
+  -> IntegrationalScenarioM (TAddress Multisig.Parameter, TAddress STKR.Parameter)
 originate params = do
   setNow dummyNow
   originateWithTC defTimeConfig params
 
 originateWithEmptyLedger
   :: [PublicKey] -> [PublicKey]
-  -> IntegrationalScenarioM (ContractRef Multisig.Parameter, ContractRef STKR.Parameter)
+  -> IntegrationalScenarioM (TAddress Multisig.Parameter, TAddress STKR.Parameter)
 originateWithEmptyLedger teamKeys councilKeys = originate $
   OriginateParams
     { opTeamKeys = teamKeys
@@ -99,22 +98,22 @@ originateWithEmptyLedger teamKeys councilKeys = originate $
 -- #cPermitOnFrozen).
 callWithMultisig'
   :: forall wrapper param. TransferOrderWrapC STKR.Parameter wrapper (STKR.EnsureOwner param)
-  => ContractRef Multisig.Parameter
+  => TAddress Multisig.Parameter
   -> Label wrapper
   -> Natural
   -> [SecretKey]
-  -> ContractRef STKR.Parameter
+  -> TAddress STKR.Parameter
   -> param
   -> IntegrationalScenarioM ()
 callWithMultisig' msig paramWrapper nonce teamSecretKeys stkr param = do
-  let order = mkCallOrderWrap (Ref stkr) paramWrapper $ STKR.EnsureOwner param
+  let order = mkCallOrderWrap @STKR.Parameter (Ref stkr) paramWrapper $ STKR.EnsureOwner param
   let toSign = Multisig.ValueToSign
-        { vtsMultisigAddress = fromContractAddr msig
+        { vtsMultisigAddress = unTAddress msig
         , vtsNonce = nonce
         , vtsOrder = order
         }
 
-  lCall msig $
+  lCallDef msig $
     Multisig.Parameter
       { order = order
       , nonce = nonce
@@ -124,10 +123,10 @@ callWithMultisig' msig paramWrapper nonce teamSecretKeys stkr param = do
 -- | An utility function that creates a call order, signs it and
 -- calls Multisig with the correct parameter.
 callWithMultisig
-  :: ContractRef Multisig.Parameter
+  :: TAddress Multisig.Parameter
   -> Natural
   -> [SecretKey]
-  -> ContractRef STKR.Parameter
+  -> TAddress STKR.Parameter
   -> STKR.OpsTeamEntrypointParam
   -> IntegrationalScenarioM ()
 callWithMultisig msig = callWithMultisig' msig #cOpsTeamEntrypoint

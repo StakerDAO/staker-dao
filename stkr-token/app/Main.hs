@@ -9,7 +9,6 @@ import qualified Data.Text.IO as T
 import qualified Data.Yaml as Yaml
 import Fmt (pretty, (+|), (|+))
 import qualified Lorentz as L
-import Lorentz.Value (toContractRef)
 import qualified Options.Applicative as Opt
 import Tezos.Crypto (formatPublicKey, formatSignature, hashKey)
 import Util.IO (writeFileUtf8)
@@ -207,7 +206,7 @@ remoteCmdRunner = \case
   SetSuccessor SetSuccessorOptions {..} -> do
     newStkrAddr <- Tz.resolve' Tz.ContractAlias ssSucc
     let param = STKR.SetSuccessor $ #successor $
-                  STKR.successorLambda (toContractRef newStkrAddr)
+                  STKR.successorLambda (L.TAddress newStkrAddr)
     handleFrozenMultisig ssPrintSigs ssStkr param ssViaMultisig
   Withdraw WithdrawOptions {..} -> do
     toAddr <- Tz.resolve' Tz.AddressAlias wReceiver

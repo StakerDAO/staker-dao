@@ -4,18 +4,19 @@ module Test.Lorentz.Contracts.STKR.NewCouncil
 
 import Prelude
 
+import CryptoInterop (detSecretKey, hashKey, toPublic)
 import qualified Data.Set as S
 import Fmt (listF, (+|), (|+))
-import Lorentz (fromContractAddr)
+import Lorentz (unTAddress)
 import Lorentz.Test
 import Michelson.Test.Dummy (dummyNow)
 import Test.Hspec (Spec, it)
 import Tezos.Core (timestampPlusSeconds)
-import Tezos.Crypto (detSecretKey, hashKey, toPublic)
 
 import qualified Lorentz.Contracts.STKR as STKR
 
-import Test.Lorentz.Contracts.STKR.Common (callWithMultisig, originateWithEmptyLedger)
+import Test.Lorentz.Contracts.STKR.Common
+  (callWithMultisig, originateWithEmptyLedger)
 
 
 spec_NewCouncil :: Spec
@@ -64,12 +65,12 @@ newCouncilSpec = do
     integrationalTestExpectation $ do
       (msig, stkr) <- originateWithEmptyLedger teamPks []
 
-      lCall stkr $
+      lCallDef stkr $
         STKR.OpsTeamEntrypoint .
         STKR.EnsureOwner .
         STKR.NewCouncil $ newCouncilKeys
       validate . Left $
-        lExpectCustomError #senderCheckFailed (fromContractAddr msig)
+        lExpectCustomError #senderCheckFailed (unTAddress msig)
 
   where
     waitForStage n = setNow $ timestampPlusSeconds dummyNow n

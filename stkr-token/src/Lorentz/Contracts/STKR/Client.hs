@@ -17,12 +17,13 @@ import qualified Data.Set as S
 
 import Fmt (Buildable(..), Builder, blockMapF, jsonListF, mapF')
 
-import Tezos.Address (Address (..))
+import CryptoInterop
+  (KeyHash, PublicKey, detSecretKey, formatKeyHash, hashKey, toPublic)
+import Tezos.Address (Address(..), mkKeyAddress)
 import Tezos.Core (unsafeMkMutez)
-import Tezos.Crypto (PublicKey, KeyHash (..), formatKeyHash, hashKey)
 import Util.Named ((:!))
 
-import Lorentz (BigMap (..), IsoValue, Lambda, Operation)
+import Lorentz (BigMap(..), IsoValue, Lambda, Operation)
 
 import qualified Lorentz.Contracts.STKR as STKR
 import TzTest (TzTest)
@@ -38,7 +39,7 @@ data DeployOptions = DeployOptions
   }
 
 reservoirAddr :: Address
-reservoirAddr = KeyAddress (KeyHash "staker-dao/reservoir")
+reservoirAddr = mkKeyAddress . toPublic . detSecretKey $ "staker-dao/reservoir"
 
 deploy :: DeployOptions -> TzTest Address
 deploy DeployOptions{..} = do

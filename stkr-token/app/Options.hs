@@ -40,10 +40,10 @@ import qualified Data.Text as T
 import Fmt (pretty)
 import qualified Options.Applicative as Opt
 
+import CryptoInterop
+  (KeyHash, PublicKey, Signature, parseKeyHash, parsePublicKey, parseSignature)
 import Tezos.Address (Address, parseAddress)
 import Tezos.Core (Mutez, Timestamp, mkMutez, timestampFromSeconds)
-import Tezos.Crypto
-  (KeyHash, PublicKey, Signature, parseKeyHash, parsePublicKey, parseSignature)
 
 import TzTest (OrAlias)
 import qualified TzTest as Tz

@@ -11,8 +11,8 @@ import Lens.Micro (ix)
 import System.Environment (getArgs)
 import Test.Hspec.Core.Runner
 
+import CryptoInterop (PublicKey, parseSecretKey)
 import Tezos.Address (Address)
-import Tezos.Crypto (PublicKey, parseSecretKey)
 import TzTest (TzTest, runTzTest)
 import qualified TzTest as Tz
 

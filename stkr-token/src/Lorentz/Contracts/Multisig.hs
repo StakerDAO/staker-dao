@@ -26,7 +26,7 @@ import Lorentz.Contracts.Multisig.Error ()
 import Lorentz.Contracts.Multisig.Parameter
 import Lorentz.Contracts.Multisig.Storage
 
-multisigContract :: Contract Parameter Storage
+multisigContract :: ContractCode Parameter Storage
 multisigContract = do
   amount; push (toMutez 0)
   if IsEq

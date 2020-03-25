@@ -5,6 +5,8 @@ module Test.Lorentz.Contracts.Multisig
 
 import Prelude
 
+import CryptoInterop
+  (KeyHash, PublicKey(..), SecretKey, detSecretKey, hashKey, sign, toPublic)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Fmt ((+|), (|+))
@@ -14,7 +16,6 @@ import qualified Lorentz as L
 import Lorentz.Pack (lPackValue)
 import Lorentz.Test
 import Test.Hspec (Spec, it)
-import Tezos.Crypto (KeyHash, PublicKey, SecretKey, detSecretKey, hashKey, sign, toPublic)
 import Util.Named ((.!))
 
 import Lorentz.Contracts.Client (multisignValue)
@@ -22,7 +23,7 @@ import Lorentz.Contracts.Multisig
 
 originate
   :: [PublicKey]
-  -> IntegrationalScenarioM (L.ContractRef Parameter)
+  -> IntegrationalScenarioM (L.TAddress Parameter)
 originate teamKeys =
   lOriginate multisigContract "Operation team multisig"
     Storage
@@ -60,7 +61,7 @@ newTeamPKHs = Set.fromList $ hashKey . pk <$> [1, 2, 3, 8, 9, 10]
 
 -- | A contract that sets the flag to True when invoked. We use this
 -- flag contract to make sure the transaction went through.
-flagContract :: L.Contract () Bool
+flagContract :: L.ContractCode () Bool
 flagContract = L.drop # L.push True # L.nil # L.pair
 
 -- | An address not equal to the multisig address
@@ -71,7 +72,7 @@ someRandomAddress = genesisAddress5
 -- with the correct parameter. An extended version that accepts
 -- a custom multisig address for signatures.
 callMsig'
-  :: L.ContractRef Parameter -> L.Address -> Natural -> Order
+  :: L.TAddress Parameter -> L.Address -> Natural -> Order
   -> [SecretKey] -> IntegrationalScenarioM ()
 callMsig' msig addr nonce order teamSecretKeys = do
   let toSign = ValueToSign
@@ -81,7 +82,7 @@ callMsig' msig addr nonce order teamSecretKeys = do
             }
 
   let signatures = multisignValue teamSecretKeys toSign
-  lCall msig $
+  lCallDef msig $
     Parameter
       { order = order
       , nonce = nonce
@@ -91,9 +92,9 @@ callMsig' msig addr nonce order teamSecretKeys = do
 -- | An utility function that signs the order and calls Multisig
 -- with the correct parameter.
 callMsig
-  :: L.ContractRef Parameter -> Natural -> Order
+  :: L.TAddress Parameter -> Natural -> Order
   -> [SecretKey] -> IntegrationalScenarioM ()
-callMsig msig = callMsig' msig (L.fromContractAddr msig)
+callMsig msig = callMsig' msig (L.unTAddress msig)
 
 spec_Call :: Spec
 spec_Call = do
@@ -119,7 +120,7 @@ spec_Call = do
     integrationalTestExpectation $ do
       msig <- originate publicKeys
       flag <- lOriginate flagContract "flag" False (L.toMutez 0)
-      let flagAddr = L.fromContractAddr flag
+      let flagAddr = L.unTAddress flag
       let wrongOrder = mkCallOrder (Unsafe flagAddr) (777 :: Natural)
 
       callMsig msig 1 wrongOrder (take 3 secretKeys)
@@ -226,16 +227,16 @@ generalFailuresSpec mkOrder = do
       order <- mkOrder
       msig <- originate $ take 4 publicKeys
       let nonce = 1
-      let msigAddr = L.fromContractAddr msig
+      let msigAddr = L.unTAddress msig
 
       let toSign = ValueToSign
-            { vtsMultisigAddress = L.fromContractAddr msigAddr
+            { vtsMultisigAddress = msigAddr
             , vtsNonce = nonce
             , vtsOrder = order
             }
 
       let signatures = multisignValue (take 3 secretKeys) toSign
-      lTransfer (#from .! genesisAddress) (#to .! msigAddr) (L.toMutez 100) $
+      lTransfer @Parameter (#from .! genesisAddress) (#to .! msigAddr) (L.toMutez 100) CallDefault $
         Parameter
           { order = order
           , nonce = nonce
@@ -272,7 +273,7 @@ wrongSignatureSpec mkOrder positions =
         msig <- originate publicKeys
         let nonce = 1
         let toSign = ValueToSign
-              { vtsMultisigAddress = L.fromContractAddr msig
+              { vtsMultisigAddress = L.unTAddress msig
               , vtsNonce = nonce
               , vtsOrder = order
               }
@@ -280,7 +281,7 @@ wrongSignatureSpec mkOrder positions =
         let correctSignatures = multisignValue secretKeys toSign
         let evilSignature = sign evilSK (lPackValue toSign)
         let messedSignatures = correctSignatures & ix (pos - 1) . _2 .~ evilSignature
-        lCall msig $
+        lCallDef msig $
           Parameter
             { order = order
             , nonce = nonce

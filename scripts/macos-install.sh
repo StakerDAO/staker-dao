@@ -16,5 +16,5 @@ mkdir -p "$config_dir"
 
 rm "$config_file"
 
-curl "$config_template_link" | sed "s%_TEZOS_CLIENT_PATH%$tezos_client%g" > $config_file
+curl "$config_template_link" | sed "s%_TEZOS_CLIENT_PATH%$tezos_client%g" > "$config_file"
 

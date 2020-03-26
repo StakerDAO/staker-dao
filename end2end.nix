@@ -5,22 +5,31 @@
 with (import sources.nixpkgs) {};
 
 let
-  tezosPackaging = (import sources.tezos-packaging) {};
+  tezosPackaging = (import sources.tezos-packaging) { pkgs = (import sources.nixpkgs) {}; };
 
   drv = (import ./default.nix).test-end2end;
 
-  tezosClientStatic = tezosPackaging.tezos-client-static;
+  tezosClientStatic = tezosPackaging.binaries-drv;
 
   TEZOS_CLIENT =
     if useTezosDerivation
     then "${tezosClientStatic}/bin/tezos-client"
     else tezosClientPath;
 
+  testConfig = writeTextFile {
+    name = "test-config.yaml";
+    text = ''
+      envTezosClientCmd: "${TEZOS_CLIENT}"
+      envNodeAddr:
+        naHost: "carthage.testnet.tezos.serokell.team"
+        naPort: 8732
+    '';
+  };
+
 
   testScript = writeShellScript "stkr-token-test-end2end-script" ''
-    export TEZOS_CLIENT=${TEZOS_CLIENT}
     ${drv}/bin/stkr-token-test-end2end \
-      ${./stkr-token/tezos-nodes/serokell.yaml} \
+      ${testConfig} \
       ${./stkr-token/test-accounts/faucet.yaml} \
       300
   '';

@@ -17,9 +17,8 @@ import qualified Data.Set as S
 
 import Fmt (Buildable(..), Builder, blockMapF, jsonListF, mapF')
 
-import CryptoInterop
-  (KeyHash, PublicKey, detSecretKey, formatKeyHash, hashKey, toPublic)
-import Tezos.Address (Address(..), mkKeyAddress)
+import CryptoInterop (KeyHash, PublicKey, formatKeyHash, hashKey)
+import Tezos.Address (Address, unsafeParseAddress)
 import Tezos.Core (unsafeMkMutez)
 import Util.Named ((:!))
 
@@ -38,8 +37,9 @@ data DeployOptions = DeployOptions
   , totalSupply_ :: Natural
   }
 
+-- | Fixed address needed for deployment, should not be changed in future
 reservoirAddr :: Address
-reservoirAddr = mkKeyAddress . toPublic . detSecretKey $ "staker-dao/reservoir"
+reservoirAddr = unsafeParseAddress "tz1WAVpSaCFtLQKSJkrdVApCQC1TNK8iNxq9"
 
 deploy :: DeployOptions -> TzTest Address
 deploy DeployOptions{..} = do

@@ -14,10 +14,10 @@ module Lorentz.Contracts.Multisig.Parameter
   , mkTransferOrderWrap
   ) where
 
-import Lorentz
+import Lorentz hiding (Call)
 
-import Michelson.Typed.Haskell.Instr.Sum (InstrWrapC, GetCtorField, CtorField(..))
-import Data.Vinyl.Derived (Label)
+import Michelson.Typed.Haskell.Instr.Sum
+  (CtorField(..), GetCtorField, InstrWrapC)
 
 import Lorentz.Contracts.Multisig.Error ()
 
@@ -28,10 +28,10 @@ data Parameter = Parameter
   , nonce :: Natural
   , signatures :: Signatures
   } deriving stock Generic
-    deriving anyclass IsoValue
+    deriving anyclass (IsoValue, HasTypeAnn)
 
-instance ParameterEntryPoints Parameter where
-  parameterEntryPoints = pepNone
+instance ParameterHasEntryPoints Parameter where
+  type ParameterEntryPointsDerivation Parameter = EpdNone
 
 -- | Action that is going to be executed. May be either some
 -- contract call, or key rotation.
@@ -39,7 +39,7 @@ data Order
   = Call (Lambda () Operation)
   | RotateKeys (Set KeyHash)
   deriving stock Generic
-  deriving anyclass IsoValue
+  deriving anyclass (IsoValue, HasTypeAnn)
 
 -- | Value that the participants should sign. Includes nonce to
 -- prevent replay attacks and the multisig address to prevent both
@@ -53,17 +53,23 @@ data ValueToSign = ValueToSign
 
 data OrderDest a
   = Unsafe Address
-  | Ref (ContractRef a)
+  | Ref (TAddress a)
+
+
+type ReceiverParam a =
+  ( NiceParameterFull a
+  , ForbidExplicitDefaultEntryPoint a
+  )
 
 mkTransferOrderGeneric
-  :: forall a. NiceParameter a
-  => Mutez -> OrderDest a -> (forall st. st :-> a ': st) -> Order
+  :: forall a. ReceiverParam a
+   => Mutez -> OrderDest a -> (forall st. st :-> a ': st) -> Order
 mkTransferOrderGeneric value orderDest paramSupplier = Call $ do
   drop
   push $
     case orderDest of
       Unsafe addr -> addr
-      Ref contractRef -> fromContractAddr contractRef
+      Ref taddr -> unTAddress taddr
   contract @a
   if IsSome
   then nop
@@ -75,14 +81,14 @@ mkTransferOrderGeneric value orderDest paramSupplier = Call $ do
 -- | Make an order to transfer @amount@ utz from multisig to
 -- @address@ passing @param@ as the transaction parameter.
 mkTransferOrder
-  :: forall a. (NiceParameter a, NiceConstant a)
+  :: forall a. (ReceiverParam a, NiceConstant a)
   => Mutez -> OrderDest a -> a -> Order
 mkTransferOrder value dest param =
   mkTransferOrderGeneric value dest (push param)
 
 type TransferOrderWrapC dt cName it =
   ( InstrWrapC dt cName
-  , NiceParameter dt
+  , ReceiverParam dt
   , GetCtorField dt cName ~ 'OneField it
   , NiceConstant it
   )
@@ -103,7 +109,7 @@ mkTransferOrderWrap value dest label param =
 -- to transferring 0 from multisig to @address@ passing
 -- @param@ as the transaction parameter.
 mkCallOrder
-  :: forall a. (NiceParameter a, NiceConstant a)
+  :: forall a. (ReceiverParam a, NiceConstant a)
   => OrderDest a -> a -> Order
 mkCallOrder = mkTransferOrder (toMutez 0)
 

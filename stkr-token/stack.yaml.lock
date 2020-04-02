@@ -5,16 +5,53 @@
 
 packages:
 - completed:
+    subdir: code/morley
+    cabal-file:
+      size: 11451
+      sha256: b751d73258370dc29dddd4dd9880a5c6efa4537971e4af46563609b820a5a195
     name: morley
-    version: 0.3.0.1
+    version: 1.0.0
     git: https://gitlab.com/morley-framework/morley.git
     pantry-tree:
-      size: 44612
-      sha256: c6c6798c8e023511ed6ed7c5af14b77c3983e85cd2ddcd13fb564ddcb93dd678
-    commit: 3a545a894499e5457f814c5637e504c93422f548
+      size: 11015
+      sha256: 8da450853e2f0c5475d3f949e3e86cfb29d5a9d96f5fb4438c6a2b565729d06b
+    commit: 13a60544b67bf5d168840ea7ab6ac75ea89a069a
   original:
+    subdir: code/morley
     git: https://gitlab.com/morley-framework/morley.git
-    commit: 3a545a894499e5457f814c5637e504c93422f548
+    commit: 13a60544b67bf5d168840ea7ab6ac75ea89a069a
+- completed:
+    subdir: code/morley-prelude
+    cabal-file:
+      size: 2144
+      sha256: f4d492fe081b9a06ce0c331194338f84cad5cadeeafdcedd2c61341bd09476e0
+    name: morley-prelude
+    version: 0.3.0
+    git: https://gitlab.com/morley-framework/morley.git
+    pantry-tree:
+      size: 322
+      sha256: 529d07ee26c57a103b288eb0f06e8a3e471ea99479cc8074e5be204a0a6f250e
+    commit: 13a60544b67bf5d168840ea7ab6ac75ea89a069a
+  original:
+    subdir: code/morley-prelude
+    git: https://gitlab.com/morley-framework/morley.git
+    commit: 13a60544b67bf5d168840ea7ab6ac75ea89a069a
+- completed:
+    subdir: code/lorentz
+    cabal-file:
+      size: 6767
+      sha256: dad404eb20507374b3c1f8dc0600a2873d1dc0b5ea7b1189d31e3bea6c7bda21
+    name: lorentz
+    version: 0.1.0
+    git: https://gitlab.com/morley-framework/morley.git
+    pantry-tree:
+      size: 6511
+      sha256: 3b541daad58e4a6f7780f8d6fe85eb8979264b307a7a408b5f4c5a99b88b7ff2
+    commit: 13a60544b67bf5d168840ea7ab6ac75ea89a069a
+  original:
+    subdir: code/lorentz
+    git: https://gitlab.com/morley-framework/morley.git
+    commit: 13a60544b67bf5d168840ea7ab6ac75ea89a069a
 - completed:
     hackage: aeson-options-0.1.0@sha256:2d0c25afbb2d038bd5b57de8d042e319ea1a5ec7d7b92810d8a0cf0777882b6a,1244
     pantry-tree:
@@ -57,9 +94,16 @@ packages:
       sha256: c07e39492e0b8da34f87b3f7516f7739d60543013e7f22bc7db0dbe99eb57540
   original:
     hackage: show-type-0.1.1
+- completed:
+    hackage: tasty-hunit-compat-0.2@sha256:71e077ae5c514fadd4586efc19315f10fa5f3c94770820f68f63768441d665f7,1199
+    pantry-tree:
+      size: 229
+      sha256: ef4e8284433af224f89a1dfd2968ea79de3570cef6e81b10187aca5d1fae6f76
+  original:
+    hackage: tasty-hunit-compat-0.2
 snapshots:
 - completed:
-    size: 498186
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/13/22.yaml
-    sha256: d4f07dc3d5658260c2fe34266ad7618f6c84d34decf559c9c786ac1cfccf4e7b
-  original: lts-13.22
+    size: 525662
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/14/15.yaml
+    sha256: c5e673e5723931b64ef2eb5004f6d9ea3c95b58d48388dbc4de6f66b97c81f7a
+  original: lts-14.15

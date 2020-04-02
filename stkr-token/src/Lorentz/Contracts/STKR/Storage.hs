@@ -6,13 +6,15 @@ module Lorentz.Contracts.STKR.Storage
 
 import Lorentz
 
-import Data.Functor.Identity (Identity (..))
-import Named (NamedF (..))
+import Data.Functor.Identity (Identity(..))
+import Named (NamedF(..))
 
-import Fmt (Buildable(..), Builder, blockMapF, jsonListF, mapF', base64F, (+|), (|+))
-import Tezos.Crypto (formatKeyHash, KeyHash (..))
+import Fmt
+  (Buildable(..), Builder, base64F, blockMapF, jsonListF, mapF', (+|), (|+))
+import Tezos.Crypto (KeyHash(..), formatKeyHash)
 
-import Lorentz.Contracts.STKR.Governance.TypeDefs (Blake2BHash (..), Proposal, ProposalAndHash, Sha256Hash (..), URL, Policy)
+import Lorentz.Contracts.STKR.Governance.TypeDefs
+  (Blake2BHash(..), Policy, Proposal, ProposalAndHash, Sha256Hash(..), URL)
 import Lorentz.Contracts.STKR.Parameter (PublicEntrypointParam(..))
 
 data Storage = Storage
@@ -44,7 +46,7 @@ instance Buildable Proposal where
 
 instance Buildable ProposalAndHash where
   build (proposal, ArgF (Identity (Blake2BHash hash))) =
-    build proposal |+ " (hash " +| build (KeyHash hash) |+ ")"
+    build proposal |+ " (hash " +| base64F hash |+ ")"
 
 instance Buildable Storage where
   build Storage{..} = blockMapF @[(Text, Builder)] $

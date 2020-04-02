@@ -4,6 +4,8 @@ module Test.Lorentz.Contracts.STKR.Governance.ProposalLifecycle
 
 import Prelude
 
+import CryptoInterop
+  (KeyHash, PublicKey, SecretKey, blake2b, hashKey, sign, toPublic)
 import qualified Data.Map as Map
 import Lens.Micro (ix)
 import qualified Lorentz as L
@@ -12,8 +14,6 @@ import Named (arg)
 import Test.Hspec (Expectation, Spec, it)
 import Test.QuickCheck (generate)
 import Tezos.Core (Timestamp, timestampPlusSeconds)
-import Tezos.Crypto
-  (KeyHash, PublicKey, SecretKey, blake2b, hashKey, sign, toPublic)
 import Universum.Unsafe ((!!))
 import Util.Named ((:!), (.!))
 
@@ -48,8 +48,8 @@ originateWithProdTC
   :: [PublicKey]
   -> [PublicKey]
   -> IntegrationalScenarioM
-    ( L.ContractRef Msig.Parameter
-    , L.ContractRef STKR.Parameter
+    ( L.TAddress Msig.Parameter
+    , L.TAddress STKR.Parameter
     )
 originateWithProdTC teamPks councilPks =
   originateWithTC STKR.ProdTC { _startYear = 2020 } $
@@ -75,7 +75,7 @@ getStageTs desc i =
     desc ^? stages . ix (fromInteger $ toInteger i)
 
 voteForProposal
-  :: L.ContractRef STKR.Parameter
+  :: L.TAddress STKR.Parameter
   -> SecretKey
   -> Natural
   -> STKR.Proposal
@@ -86,10 +86,10 @@ voteForProposal stkr voteSk proposalId proposal stageCounter = do
   let bytesToSign = L.lPackValue $
         STKR.CouncilDataToSign
           { cdProposalHash = STKR.Blake2BHash . blake2b . L.lPackValue $ proposal
-          , cdContractAddr = L.fromContractAddr stkr
+          , cdContractAddr = L.unTAddress stkr
           , cdStageCounter = stageCounter
           }
-  lCall stkr
+  lCallDef stkr
     . STKR.PublicEntrypoint
     . STKR.VoteForProposal $
     ( #proposalId .! proposalId

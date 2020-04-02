@@ -4,7 +4,6 @@ module Lorentz.Contracts.STKR.Misc.EnsureOwner
   ) where
 
 import Lorentz
-import Lorentz.Coercions (coerce_)
 
 import Lorentz.Contracts.STKR.Error ()
 import Lorentz.Contracts.STKR.Misc.TypeDefs
@@ -19,7 +18,7 @@ ensureOwner = do
     if IsEq
     then drop
     else failCustom #senderCheckFailed
-  coerce_
+  forcedCoerce_
 
 withOwnerEnsured
   :: forall a si sr.

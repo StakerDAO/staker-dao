@@ -4,17 +4,18 @@ module Test.Lorentz.Contracts.STKR.Token
 
 import Prelude
 
+import CryptoInterop (toPublic)
 import Lens.Micro (at)
-import Lorentz (fromContractAddr)
+import Lorentz (unTAddress)
 import Lorentz.Test
 import Test.Hspec (Spec, it)
-import Tezos.Crypto (toPublic)
 import Util.Named ((.!))
 
 import qualified Lorentz.Contracts.STKR as STKR
 
 import Test.Lorentz.Contracts.STKR.Common
-  (OriginateParams(..), callWithMultisig, failWhenNot, newKeypair, originate, wallet1, wallet2)
+  (OriginateParams(..), callWithMultisig, failWhenNot, newKeypair, originate,
+  wallet1, wallet2)
 
 spec_Transfer :: Spec
 spec_Transfer = do
@@ -58,9 +59,9 @@ spec_Transfer = do
         , opCouncilKeys = []
         , opInitailLedger = [(wallet1, 150)]
         }
-      lCall stkr
+      lCallDef stkr
         $ STKR.OpsTeamEntrypoint
         . STKR.EnsureOwner
         . STKR.Transfer $ (#from .! wallet1, #to .! wallet2, #value .! 100)
       validate . Left $
-        lExpectCustomError #senderCheckFailed (fromContractAddr msig)
+        lExpectCustomError #senderCheckFailed (unTAddress msig)

@@ -53,18 +53,20 @@ import Text.Hex (encodeHex)
 
 import qualified Crypto.Error as CE
 import qualified Crypto.PubKey.Ed25519 as Ed25519
+import CryptoInterop
+  (KeyHash, PublicKey(..), SecretKey, Signature(..), blake2b,
+  encodeBase58Check, formatSecretKey, parseKeyHash, parsePublicKey,
+  parseSecretKey, parseSignature, sign)
 import Lorentz
-  (Contract, NicePrintedValue, NiceStorage, ParameterEntryPoints, lPackValue,
+  (ContractCode, NiceParameterFull, NicePrintedValue, NiceStorage, lPackValue,
   parseLorentzValue)
 import Lorentz.Print (printLorentzContract, printLorentzValue)
 import Michelson.Typed (IsoValue, ToT)
 import Tezos.Address (Address, formatAddress, parseAddress)
 import Tezos.Core
   (ChainId, Mutez(..), Timestamp, parseChainId, parseTimestamp, unsafeMkMutez)
-import Tezos.Crypto
-  (KeyHash, PublicKey(..), SecretKey, Signature(..), blake2b,
-  encodeBase58Check, formatSecretKey, parseKeyHash, parsePublicKey,
-  parseSecretKey, parseSignature, sign)
+import qualified Tezos.Crypto.Ed25519 as TzEd25519
+
 
 import Data.Maybe (fromJust)
 import System.Console.Haskeline (defaultSettings, getPassword, runInputT)
@@ -235,7 +237,7 @@ data OriginateContractP p st =
   { ocpAlias :: Text
   , ocpQty :: Natural
   , ocpSrc :: Address
-  , ocpContract :: Contract p st
+  , ocpContract :: ContractCode p st
   , ocpInitalStorage :: st
   , ocpBurnCap :: Natural
   }
@@ -243,7 +245,7 @@ data OriginateContractP p st =
 originateContract
   :: forall p st.
   ( NiceStorage st
-  , ParameterEntryPoints p
+  , NiceParameterFull p
   )
   => OriginateContractP p st -> TzTest Address
 originateContract OriginateContractP{..} = do
@@ -287,7 +289,7 @@ lineWithPrefix prefix txt
 
 -- Tezos.Crypto exports SecretKey abstractly, don't bother to change it
 mySignPK :: ByteString -> ByteString -> Signature
-mySignPK skBytes bytes = Signature . Ed25519.sign sk pk . blake2b $ bytes
+mySignPK skBytes bytes = SignatureEd25519 . TzEd25519.Signature . Ed25519.sign sk pk . blake2b $ bytes
   where
     sk = CE.throwCryptoError $ Ed25519.secretKey skBytes
     pk = Ed25519.toPublic sk

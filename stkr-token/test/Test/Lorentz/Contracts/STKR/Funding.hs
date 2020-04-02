@@ -7,11 +7,11 @@ module Test.Lorentz.Contracts.STKR.Funding
 
 import Prelude hiding (drop)
 
+import CryptoInterop (SecretKey)
 import Lorentz hiding ((>>))
 import Lorentz.Test
 import Test.Hspec (Spec, it)
 import Tezos.Address (parseAddress)
-import Tezos.Crypto (SecretKey)
 import Util.Named ((.!))
 
 import qualified Lorentz.Contracts.Multisig as Multisig
@@ -21,10 +21,10 @@ import Test.Lorentz.Contracts.STKR.Common
   (callWithMultisig', mkTeamKeys, originateWithEmptyLedger)
 
 callWithdraw
-  :: ContractRef Multisig.Parameter
+  :: TAddress Multisig.Parameter
   -> Natural
   -> [SecretKey]
-  -> ContractRef STKR.Parameter
+  -> TAddress STKR.Parameter
   -> STKR.WithdrawParams
   -> IntegrationalScenarioM ()
 callWithdraw msig nonce teamSecretKeys stkr param = do
@@ -42,8 +42,8 @@ spec_Fund = do
   it "fund entrypoint accepts funding" . integrationalTestExpectation $ do
     (_, stkr) <- originateWithEmptyLedger teamPks []
 
-    let stkrAddress = fromContractAddr stkr :: FutureContract STKR.Parameter
-    lTransfer (#from .! genesisAddress) (#to .! stkr) (toMutez 100) $
+    let stkrAddress = unTAddress stkr
+    lTransfer (#from .! genesisAddress) (#to .! stkr) (toMutez 100) CallDefault $
         STKR.PublicEntrypoint $ STKR.Fund "dummybytestring"
     validate . Right $ lExpectBalance stkrAddress (toMutez 100)
 
@@ -55,21 +55,21 @@ spec_Withdraw = do
   it "succeeds if called by owner" . integrationalTestExpectation $ do
     (msig, stkr) <- originateWithEmptyLedger teamPks []
 
-    let stkrAddress = fromContractAddr stkr :: FutureContract STKR.Parameter
-    lTransfer (#from .! genesisAddress) (#to .! stkr) (toMutez 100) $
+    let stkrAddress = unTAddress stkr
+    lTransfer (#from .! genesisAddress) (#to .! stkr) (toMutez 100) CallDefault $
         STKR.PublicEntrypoint $ STKR.Fund "dummybytestring"
 
     callWithdraw msig 1 teamSks stkr (#to .! receiver, #amount .! toMutez 50)
 
     validate . Right $ lExpectBalance stkrAddress (toMutez 50)
-    validate . Right $ lExpectBalance (FutureContract receiver) (toMutez 50)
+    validate . Right $ lExpectBalance receiver (toMutez 50)
 
   it "fails if called by a non-owner" . integrationalTestExpectation $ do
     (msig, stkr) <- originateWithEmptyLedger teamPks []
 
-    lTransfer (#from .! genesisAddress) (#to .! stkr) (toMutez 100) $
+    lTransfer (#from .! genesisAddress) (#to .! stkr) (toMutez 100) CallDefault $
         STKR.PublicEntrypoint $ STKR.Fund "dummybytestring"
 
     let withdraw = STKR.PermitOnFrozen . STKR.EnsureOwner . STKR.Withdraw
-    lCall stkr $ withdraw (#to .! receiver, #amount .! toMutez 50)
-    validate . Left $ lExpectCustomError #senderCheckFailed (fromContractAddr msig)
+    lCallDef stkr $ withdraw (#to .! receiver, #amount .! toMutez 50)
+    validate . Left $ lExpectCustomError #senderCheckFailed (unTAddress msig)

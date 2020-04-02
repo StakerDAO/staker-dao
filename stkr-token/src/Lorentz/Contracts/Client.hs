@@ -26,11 +26,12 @@ import Fmt (Buildable(..), Builder, mapF)
 import Lens.Micro (ix)
 import Named (arg)
 
+import CryptoInterop
+  (KeyHash, PublicKey(..), SecretKey, Signature(..), sign, toPublic)
 import Lorentz.Constraints (NicePackedValue)
 import Lorentz.Pack (lPackValue)
 import Tezos.Address (Address)
 import Tezos.Core (Mutez)
-import Tezos.Crypto (KeyHash, PublicKey, SecretKey, Signature, sign, toPublic)
 
 import TzTest (TzTest)
 import qualified TzTest as Tz

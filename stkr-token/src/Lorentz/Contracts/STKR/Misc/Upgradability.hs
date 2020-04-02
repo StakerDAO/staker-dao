@@ -46,13 +46,13 @@ setSuccessor = do
   nil; pair
 
 successorLambda
-  :: ContractRef Parameter
+  :: TAddress Parameter
   -> Lambda PublicEntrypointParam Operation
 successorLambda newSTKR = do
   stackType @('[PublicEntrypointParam])
   wrap_ @Parameter #cPublicEntrypoint
-  push (fromContractAddr newSTKR)
+  push newSTKR
   contract @Parameter
   if IsSome
   then balance # dig @2 # transferTokens
-  else (push (fromContractAddr @Parameter @Address newSTKR)) # failCustom #successorParameterCastError
+  else push (toAddress newSTKR) # failCustom #successorParameterCastError

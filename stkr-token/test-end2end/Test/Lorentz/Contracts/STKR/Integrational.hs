@@ -15,10 +15,10 @@ import Michelson.Text (mkMTextUnsafe)
 import Test.Hspec (Expectation, Spec, it, runIO, shouldBe)
 import Text.Hex (decodeHex)
 
+import CryptoInterop
+  (PublicKey, SecretKey, blake2b, detSecretKey, hashKey, toPublic)
 import Tezos.Address (Address)
 import qualified Tezos.Core as Tz
-import Tezos.Crypto
-  (PublicKey, SecretKey, blake2b, detSecretKey, hashKey, toPublic)
 import TzTest (TzTest, runTzTest)
 import qualified TzTest as Tz
 

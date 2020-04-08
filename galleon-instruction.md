@@ -1,11 +1,11 @@
 # Instruction on STKR contract token functionality for Galleon team
 
-This instruction provides quck intruduction on how to transfer STKR tokens on Tezos testnet.
-It is more like a wrapper around [MANUAL](https://github.com/StakerDAO/staker-dao/blob/master/MANUAL.md) for galleon team.
+This instruction provides a quick introduction on how to transfer STKR tokens on Tezos testnet.
+It is more like a wrapper around [MANUAL](https://github.com/StakerDAO/staker-dao/blob/master/MANUAL.md) for Galleon team.
 
 ## 1. Generate team keys for signing transfers
 
-Using `tezos-client` and following instructions at _Key generation_ [section in MANUAL](https://github.com/StakerDAO/staker-dao/blob/master/MANUAL.md) you need to geneate at least 3 PK/SK pairs using `tezos-client gen keys`.
+Using `tezos-client` and following instructions in _Key generation_ [section in MANUAL](https://github.com/StakerDAO/staker-dao/blob/master/MANUAL.md) you need to geneate at least 3 PK/SK pairs using `tezos-client gen keys`.
 
 For example lets generate keys with names `galleon_team_{1, 2, 3}`.
 ```bash
@@ -26,7 +26,7 @@ Public Key: edpkv8WsAeoZtVuRQ9WQEnGKeXmxFPKdhf68m5m7VydGVZYqeCzxNj
 ```
 where `tz1Rsrmcinoo5zDiGxbXAE9wPLSy57CsQYnT` is hash of public key, which we would need on the next step.
 
-Now lets use these public key hashes as out `--team-pk-hash`'es during deployment.
+Now lets use these public key hashes as our `--team-pk-hash`'es during deployment.
 
 ```
 stkr-token-cli 'deploy' -c ~/.stkr-token-cli/config.yaml --msigAlias galleon_msig \
@@ -43,8 +43,8 @@ Deploy result: {token: KT1N3YaxhH3JGr3u9Q7ULd6MnMxYo24jKKDF, multisig: KT1BRfaWP
 
 ## 3. Obtaining deposited amount on specific address
 
-By default after deployment all supply for tokens are hold at _reservoir accout_ which is just a hardcoded account with key hash `tz1WAVpSaCFtLQKSJkrdVApCQC1TNK8iNxq9`.
-
+By default after deployment all supply for tokens are hold at _reservoir accout_ which is
+just a hardcoded account with key hash equals `tz1WAVpSaCFtLQKSJkrdVApCQC1TNK8iNxq9`.
 Let's find out it's balance using `tezos-client`.
 
 ### Looking at contract storage

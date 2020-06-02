@@ -6,6 +6,7 @@ module TzTest
 
   , Env(..)
   , NodeAddress(..)
+  , Verbosity(..)
   , getTezosClientCmd
   , mkEnv
 
@@ -83,6 +84,8 @@ data NodeAddress = NodeAddress
 data Env = Env
   { envTezosClientCmd :: Text
   , envNodeAddr :: NodeAddress
+  , envSecure :: Bool
+  , envVerbosity :: Verbosity
   }
   deriving stock Generic
   deriving anyclass FromJSON
@@ -109,17 +112,22 @@ data Verbosity =
   | ShowStdOut
   | ShowStdErr
   | ShowBoth
-  deriving Eq
+  deriving (Eq, Generic, FromJSON, Read)
 
 exec :: Verbosity -> [Text] -> TzTest (Text, Text)
 exec verbosity args =
   execWithShell verbosity args id
 
+execWithEnvVerb :: [Text] -> TzTest (Text, Text)
+execWithEnvVerb cmd = do
+  verb <- asks envVerbosity
+  exec verb cmd
+
 execSilentWithStdout :: [Text] -> TzTest Text
-execSilentWithStdout args = fst <$> exec Silent args
+execSilentWithStdout args = fst <$> execWithEnvVerb args
 
 execSilent :: [Text] -> TzTest ()
-execSilent = void . exec Silent
+execSilent = void . execWithEnvVerb
 
 -- For this to work well, you SHALL link with `threaded` RTS!!!
 -- Stdin is inherited!
@@ -175,7 +183,7 @@ execWithShell verbosity args shellTransform = do
         let allargs =
               [ "-A", naHost
               , "-P", show naPort
-              ] <> args
+              ] <> (if envSecure then ["-S"] else [])  <> args
         -- putTextLn $ "EXEC!: " <> envTezosClientCmd <> " " <> T.intercalate " " allargs
         e <- getEnvironment
         -- Ignore exit code ATM
@@ -262,7 +270,7 @@ originateContract OriginateContractP{..} = do
   addrString <- fromMaybe "" . safeHead . words . T.strip .
                 -- we show tezos-client output since it may ask
                 -- to supply passwords for encrypted keys
-                lineWithPrefix "New contract " . fst <$> exec ShowStdOut cmdArgs
+                lineWithPrefix "New contract " . fst <$> exec ShowBoth cmdArgs
   -- Ex: New contract KT1MNzB6r9eFiYtFbhnRUgnuC83vwSUqERWG originated.
   either (fail . pretty) pure $ parseAddress addrString
 

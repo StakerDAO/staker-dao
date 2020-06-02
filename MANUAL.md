@@ -52,13 +52,14 @@ Each command requires these arguments to be provided:
   * Network address of tezos node to connect to
 * Tezos node port `-P <int>`
   * Port of tezos node
+* Tezos node secure mode `-S` flag
 
 When describing usage of particular command we will
 not mention these params, but only use `${env}`
 placeholder. I.e.
 
 ```
-env=" --tzclient <.. path to tezos client > -A <.. tezos node address ..> -P <.. tezos node port ..> "
+env=" --tzclient <.. path to tezos client > -A <.. tezos node address ..> -P <.. tezos node port ..> -S"
 ```
 
 In explanation below we will specify commands for

@@ -97,19 +97,21 @@ keyHashReader = Opt.eitherReader $ \addr ->
 
 data TzEnvConfig
   = YamlFile FilePath
-  | CliArgs (Maybe Text, Tz.NodeAddress)
+  | CliArgs (Maybe Text, Tz.NodeAddress, Bool, Tz.Verbosity)
 
 tzNodeAddressOptions :: Opt.Parser TzEnvConfig
 tzNodeAddressOptions = envPrs <|> configPrs
   where
     envPrs =
       CliArgs <$>
-      ((,)
+      ((,,,)
       <$> (Opt.optional $ Opt.strOption $ Opt.long "tzclient")
       <*> (Tz.NodeAddress
         <$> (Opt.strOption $ Opt.short 'A')
         <*> (Opt.option (Opt.auto @Natural) $ Opt.short 'P')
         )
+      <*> (Opt.switch $ Opt.short 'S')
+      <*> (Opt.option (Opt.auto @Tz.Verbosity) $ Opt.long "verbose" <> Opt.value Tz.Silent)
       )
 
     configPrs =

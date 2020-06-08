@@ -1,6 +1,6 @@
 {-# LANGUAGE NoRebindableSyntax #-}
 
-module Lorentz.Contracts.Client
+module Client.Contracts.Bundle
   ( DeployOptions (..)
   , deploy
   , multisignBytes
@@ -36,10 +36,10 @@ import Tezos.Core (Mutez)
 import Client.Tezos (TzEnv)
 import qualified Client.Tezos as Tz
 
+import qualified Client.Contracts.Multisig as Msig
+import qualified Client.Contracts.STKR as STKR
 import qualified Lorentz.Contracts.Multisig as Msig
-import qualified Lorentz.Contracts.Multisig.Client as Msig
 import qualified Lorentz.Contracts.STKR as STKR
-import qualified Lorentz.Contracts.STKR.Client as STKR
 
 data DeployOptions = DeployOptions
   { msigAlias :: Text

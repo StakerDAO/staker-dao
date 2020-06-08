@@ -1,4 +1,4 @@
-module Lorentz.Contracts.Multisig.Client
+module Client.Contracts.Multisig
   ( DeployOptions (..)
   , deploy
 

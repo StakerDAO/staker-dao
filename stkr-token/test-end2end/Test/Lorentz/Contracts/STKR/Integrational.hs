@@ -22,9 +22,9 @@ import Lorentz.CryptoInterop
 import Tezos.Address (Address)
 import qualified Tezos.Core as Tz
 
-import Lorentz.Contracts.Client as Client
+import Client.Contracts.Bundle as Bundle
+import qualified Client.Contracts.STKR as STKR
 import qualified Lorentz.Contracts.STKR as STKR
-import qualified Lorentz.Contracts.STKR.Client as STKR
 
 data TestOptions = TestOptions
   { faucet :: Address
@@ -111,14 +111,14 @@ networkTestSpec TestOptions{..} = do
 
   it "passes happy case for newProposal" . tzTest $ do
     waitForStage 0
-    callViaMultisig faucet (Client.mkStkrOpsOrder (STKR.NewProposal newProposal) stkrAddr) vmo
+    callViaMultisig faucet (Bundle.mkStkrOpsOrder (STKR.NewProposal newProposal) stkrAddr) vmo
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} -> do
       let proposalAndHash =
             ( #proposal newProposal, #proposalHash $
               STKR.Blake2BHash $ blake2b $ lPackValue newProposal )
       proposals `shouldBe` [proposalAndHash]
 
-    callViaMultisig faucet (Client.mkStkrOpsOrder (STKR.NewCouncil newCouncilKeys) stkrAddr) vmo
+    callViaMultisig faucet (Bundle.mkStkrOpsOrder (STKR.NewCouncil newCouncilKeys) stkrAddr) vmo
     expectStorage stkrAddr $ \STKR.AlmostStorage{..} ->
       councilKeys `shouldBe` newCouncilKeys
 

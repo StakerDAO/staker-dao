@@ -17,10 +17,10 @@ import Util.Named ((.!))
 import Client.Tezos (TzEnv)
 import qualified Client.Tezos as Tz
 
-import qualified Lorentz.Contracts.Client as Client
+import qualified Client.Contracts.Bundle as Bundle
+import qualified Client.Contracts.STKR as STKR
 import qualified Lorentz.Contracts.Multisig as Msig
 import qualified Lorentz.Contracts.STKR as STKR
-import qualified Lorentz.Contracts.STKR.Client as STKR
 
 import Parser
   (CliCommand(..), DeployOptions(..), FreezeOptions(..), FundOptions(..),
@@ -62,7 +62,7 @@ signViaMultisig
   -> TzEnv (Msig.Parameter, [(L.PublicKey, L.Signature)])
 signViaMultisig order ViaMultisigOptions {..} = do
   msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
-  Client.signViaMultisig order $ Client.ViaMultisigOptions
+  Bundle.signViaMultisig order $ Bundle.ViaMultisigOptions
     { vmoMsig = msigAddr
     , vmoSign =
         \bytes ->
@@ -80,13 +80,13 @@ printPkSigs order vmo = do
     putTextLn $ formatPublicKey pk <> ":" <> formatSignature sig
 
 callViaMultisig' ::
-  (L.Address -> Client.ViaMultisigOptions -> TzEnv ())
+  (L.Address -> Bundle.ViaMultisigOptions -> TzEnv ())
    -> ViaMultisigOptions -> TzEnv ()
 callViaMultisig' f ViaMultisigOptions {..} = do
   fromAddr <- maybe (fail "From address not specified")
                     (Tz.resolve' Tz.AddressAlias) vmoFrom
   msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
-  f fromAddr $ Client.ViaMultisigOptions
+  f fromAddr $ Bundle.ViaMultisigOptions
     { vmoMsig = msigAddr
     , vmoSign =
         \bytes ->
@@ -96,7 +96,7 @@ callViaMultisig' f ViaMultisigOptions {..} = do
 
 callViaMultisig
   :: Msig.Order -> ViaMultisigOptions -> TzEnv ()
-callViaMultisig p = callViaMultisig' (flip Client.callViaMultisig p)
+callViaMultisig p = callViaMultisig' (flip Bundle.callViaMultisig p)
 
 handleFrozenMultisig
   :: Bool
@@ -106,7 +106,7 @@ handleFrozenMultisig
   -> ReaderT Tz.Env IO ()
 handleFrozenMultisig printSigs_ stkrAddrOrAlias stkrParam vmo = do
   stkrAddr <- Tz.resolve' Tz.ContractAlias stkrAddrOrAlias
-  let order = Client.mkStkrFrozenOrder stkrParam stkrAddr
+  let order = Bundle.mkStkrFrozenOrder stkrParam stkrAddr
   bool callViaMultisig printPkSigs printSigs_ order vmo
 
 handleOpsMultisig
@@ -117,7 +117,7 @@ handleOpsMultisig
   -> ReaderT Tz.Env IO ()
 handleOpsMultisig printSigs_ stkrAddrOrAlias stkrParam vmo = do
   stkrAddr <- Tz.resolve' Tz.ContractAlias stkrAddrOrAlias
-  let order = Client.mkStkrOpsOrder stkrParam stkrAddr
+  let order = Bundle.mkStkrOpsOrder stkrParam stkrAddr
   bool callViaMultisig printPkSigs printSigs_ order vmo
 
 rotateKeys
@@ -139,8 +139,8 @@ remoteCmdRunner = \case
         then mapM (fmap hashKey . Tz.generateKey . msigKeyName) [1..3]
         else pure teamPkHashes
     originator' <- Tz.resolve' Tz.AddressAlias originator
-    addrs <- Client.deploy $
-      Client.DeployOptions
+    addrs <- Bundle.deploy $
+      Bundle.DeployOptions
         { councilPks = []
         , originator = originator'
         , ..
@@ -159,7 +159,7 @@ remoteCmdRunner = \case
   VoteForProposal VoteForProposalOptions {..} -> do
     fromAddr <- Tz.resolve' Tz.AddressAlias vpFrom
     stkrAddr <- Tz.resolve' Tz.ContractAlias vpStkr
-    let conf = Client.VoteForProposalOptions
+    let conf = Bundle.VoteForProposalOptions
           { vpFrom = fromAddr
           , vpStkr = stkrAddr
           , vpSign = \toSignB -> Tz.resolve' (Tz.PkSigAlias toSignB) vpPkSig
@@ -167,14 +167,14 @@ remoteCmdRunner = \case
           }
     if vpPrintSigs
       then do
-        (pk, sig) <- Client.voteForProposalSig conf
+        (pk, sig) <- Bundle.voteForProposalSig conf
         putTextLn $ formatPublicKey pk <> ":" <> formatSignature sig
       else
-        Client.voteForProposal conf
+        Bundle.voteForProposal conf
   Fund FundOptions {..} -> do
     fromAddr <- Tz.resolve' Tz.AddressAlias fnFrom
     stkrAddr <- Tz.resolve' Tz.ContractAlias fnStkr
-    Client.fund stkrAddr fromAddr fnAmount fnPayload
+    Bundle.fund stkrAddr fromAddr fnAmount fnPayload
   PrintStorage addr_ ->
     Tz.resolve' Tz.ContractAlias addr_ >>=
     STKR.getStorage >>= liftIO . T.putStrLn . pretty
@@ -186,11 +186,11 @@ remoteCmdRunner = \case
         (Nothing, True) -> pure STKR.reservoirAddr
         (Just payer, False) -> Tz.resolve' Tz.AddressAlias payer
         _ -> fail "Either --reservoir or --addr <addr> should be specified"
-    Client.getBalance stkrAddr whose
+    Bundle.getBalance stkrAddr whose
   GetTotalSupply GetTotalSupplyOptions {..} -> do
     -- fromAddr <- Tz.resolve' Tz.AddressAlias gbFrom -- use getStorage API ATM
     stkrAddr <- Tz.resolve' Tz.ContractAlias gtsStkr
-    Client.getTotalSupply stkrAddr
+    Bundle.getTotalSupply stkrAddr
   Transfer TransferOptions {..} -> do
     from <-
       case (tPayer, tUseReservoir) of

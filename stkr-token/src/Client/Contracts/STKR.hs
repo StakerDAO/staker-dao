@@ -1,4 +1,4 @@
-module Lorentz.Contracts.STKR.Client
+module Client.Contracts.STKR
   ( DeployOptions(..)
   , deploy
 

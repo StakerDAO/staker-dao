@@ -18,7 +18,7 @@ import Lorentz.Test
 import Test.Hspec (Spec, it)
 import Util.Named ((.!))
 
-import Lorentz.Contracts.Client (multisignValue)
+import Client.Contracts.Bundle (multisignValue)
 import Lorentz.Contracts.Multisig
 
 originate

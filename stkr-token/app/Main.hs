@@ -14,8 +14,8 @@ import Tezos.Crypto (formatPublicKey, formatSignature, hashKey)
 import Util.IO (writeFileUtf8)
 import Util.Named ((.!))
 
-import Client.TzTest (TzTest)
-import qualified Client.TzTest as Tz
+import Client.Tezos (TzEnv)
+import qualified Client.Tezos as Tz
 
 import qualified Lorentz.Contracts.Client as Client
 import qualified Lorentz.Contracts.Multisig as Msig
@@ -45,7 +45,7 @@ main = do
           <*> pure nodeAddress
           <*> pure secure
           <*> pure verb
-      Tz.runTzTest (remoteCmdRunner remoteCmd) env
+      Tz.runTzEnv (remoteCmdRunner remoteCmd) env
 
 localCmdRunner :: LocalCommand -> IO ()
 localCmdRunner = \case
@@ -59,7 +59,7 @@ localCmdRunner = \case
 signViaMultisig
   :: Msig.Order
   -> ViaMultisigOptions
-  -> TzTest (Msig.Parameter, [(L.PublicKey, L.Signature)])
+  -> TzEnv (Msig.Parameter, [(L.PublicKey, L.Signature)])
 signViaMultisig order ViaMultisigOptions {..} = do
   msigAddr <- Tz.resolve' Tz.ContractAlias vmoMsig
   Client.signViaMultisig order $ Client.ViaMultisigOptions
@@ -73,15 +73,15 @@ signViaMultisig order ViaMultisigOptions {..} = do
 printPkSigs
   :: Msig.Order
   -> ViaMultisigOptions
-  -> TzTest ()
+  -> TzEnv ()
 printPkSigs order vmo = do
   (_, pkSigs) <- signViaMultisig order vmo
   forM_ pkSigs $ \(pk, sig) ->
     putTextLn $ formatPublicKey pk <> ":" <> formatSignature sig
 
 callViaMultisig' ::
-  (L.Address -> Client.ViaMultisigOptions -> TzTest ())
-   -> ViaMultisigOptions -> TzTest ()
+  (L.Address -> Client.ViaMultisigOptions -> TzEnv ())
+   -> ViaMultisigOptions -> TzEnv ()
 callViaMultisig' f ViaMultisigOptions {..} = do
   fromAddr <- maybe (fail "From address not specified")
                     (Tz.resolve' Tz.AddressAlias) vmoFrom
@@ -95,7 +95,7 @@ callViaMultisig' f ViaMultisigOptions {..} = do
     }
 
 callViaMultisig
-  :: Msig.Order -> ViaMultisigOptions -> TzTest ()
+  :: Msig.Order -> ViaMultisigOptions -> TzEnv ()
 callViaMultisig p = callViaMultisig' (flip Client.callViaMultisig p)
 
 handleFrozenMultisig
@@ -129,7 +129,7 @@ rotateKeys printSigs_ teamKeys vmo = do
   let order = Msig.mkRotateKeysOrder teamKeys
   bool callViaMultisig printPkSigs printSigs_ order vmo
 
-remoteCmdRunner :: RemoteCommand -> TzTest ()
+remoteCmdRunner :: RemoteCommand -> TzEnv ()
 remoteCmdRunner = \case
   Deploy DeployOptions{..} -> do
     let msigKeyName i = msigAlias <> "_key_" <> show (i :: Int)

@@ -33,8 +33,8 @@ import Lorentz.Pack (lPackValue)
 import Tezos.Address (Address)
 import Tezos.Core (Mutez)
 
-import Client.TzTest (TzTest)
-import qualified Client.TzTest as Tz
+import Client.Tezos (TzEnv)
+import qualified Client.Tezos as Tz
 
 import qualified Lorentz.Contracts.Multisig as Msig
 import qualified Lorentz.Contracts.Multisig.Client as Msig
@@ -62,7 +62,7 @@ instance Buildable ContractAddresses where
     , ("multisig", build msigAddr)
     ]
 
-deploy :: DeployOptions -> TzTest ContractAddresses
+deploy :: DeployOptions -> TzEnv ContractAddresses
 deploy DeployOptions{..} = do
   msigAddr <- Msig.deploy $ Msig.DeployOptions
     { contractAlias = msigAlias
@@ -100,7 +100,7 @@ signBytes sk bytes =
 signViaMultisig
   :: Msig.Order
   -> ViaMultisigOptions
-  -> TzTest (Msig.Parameter, [(PublicKey, Signature)])
+  -> TzEnv (Msig.Parameter, [(PublicKey, Signature)])
 signViaMultisig order ViaMultisigOptions {..} = do
   let getNonce = (+1) . Msig.currentNonce <$> Tz.getStorage vmoMsig
   nonce <- maybe getNonce pure vmoNonce
@@ -129,27 +129,27 @@ mkStkrOpsOrder stkrParam stkrAddr =
     (STKR.EnsureOwner stkrParam)
 
 callViaMultisig
-  :: Address -> Msig.Order -> ViaMultisigOptions -> TzTest ()
+  :: Address -> Msig.Order -> ViaMultisigOptions -> TzEnv ()
 callViaMultisig from order vmo = do
   (param, _) <- signViaMultisig order vmo
   Tz.call from (vmoMsig vmo) param
 
 data ViaMultisigOptions = ViaMultisigOptions
   { vmoMsig :: Address
-  , vmoSign :: ByteString -> TzTest [(PublicKey, Signature)]
+  , vmoSign :: ByteString -> TzEnv [(PublicKey, Signature)]
   , vmoNonce :: Maybe Natural
   }
 
 data VoteForProposalOptions = VoteForProposalOptions
   { vpStkr :: Address
   , vpFrom :: Address
-  , vpSign :: ByteString -> TzTest (PublicKey, Signature)
+  , vpSign :: ByteString -> TzEnv (PublicKey, Signature)
   , vpEpoch :: Natural
   , vpProposalId :: Natural
   }
 
 voteForProposalSig
-  :: VoteForProposalOptions -> TzTest (PublicKey, Signature)
+  :: VoteForProposalOptions -> TzEnv (PublicKey, Signature)
 voteForProposalSig VoteForProposalOptions {..} = do
   STKR.AlmostStorage{..} <- STKR.getStorage vpStkr
   proposalHash <-
@@ -159,7 +159,7 @@ voteForProposalSig VoteForProposalOptions {..} = do
   let toSignB = lPackValue $ STKR.CouncilDataToSign proposalHash vpStkr curStage
   vpSign toSignB
 
-voteForProposal :: VoteForProposalOptions -> TzTest ()
+voteForProposal :: VoteForProposalOptions -> TzEnv ()
 voteForProposal vp@VoteForProposalOptions {..} = do
   (pk, sig) <- voteForProposalSig vp
   Tz.call vpFrom vpStkr
@@ -167,7 +167,7 @@ voteForProposal vp@VoteForProposalOptions {..} = do
     . STKR.VoteForProposal
     $ (#proposalId vpProposalId, #votePk pk, #voteSig sig)
 
-fund :: Address -> Address -> Mutez -> ByteString -> TzTest ()
+fund :: Address -> Address -> Mutez -> ByteString -> TzEnv ()
 fund stkr from amount payload = Tz.transfer $
   Tz.TransferP
     { tpQty = amount
@@ -182,7 +182,7 @@ fund stkr from amount payload = Tz.transfer $
 -- Quick and dirty, we introduce no custom error type, supply error
 --   messages directly.
 
-withGetStorage :: (STKR.AlmostStorage -> TzTest ()) -> String -> Address -> TzTest ()
+withGetStorage :: (STKR.AlmostStorage -> TzEnv ()) -> String -> Address -> TzEnv ()
 withGetStorage f partname stkr = do
   st@STKR.AlmostStorage{..} <- STKR.getStorage stkr
   if isNothing successor
@@ -193,13 +193,13 @@ withGetStorage f partname stkr = do
         "STKR contract is upgraded, please use " ++ partname
          ++ " entrypoint instead of getStorage API."
 
-getTotalSupply :: Address -> TzTest ()
+getTotalSupply :: Address -> TzEnv ()
 getTotalSupply =
   withGetStorage
     (\STKR.AlmostStorage{..} -> putTextLn $ "Total supply: " <> show totalSupply)
       "getTotalSupply"
 
-getBalance :: Address -> Address -> TzTest ()
+getBalance :: Address -> Address -> TzEnv ()
 getBalance stkr whose = withGetStorage f "getBalance" stkr
   where
     f STKR.AlmostStorage{..} = do

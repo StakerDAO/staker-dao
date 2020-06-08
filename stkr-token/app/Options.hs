@@ -45,8 +45,8 @@ import Lorentz.CryptoInterop
 import Tezos.Address (Address, parseAddress)
 import Tezos.Core (Mutez, Timestamp, mkMutez, timestampFromSeconds)
 
-import Client.TzTest (OrAlias)
-import qualified Client.TzTest as Tz
+import Client.Tezos (OrAlias)
+import qualified Client.Tezos as Tz
 
 import qualified Data.ByteString.Base16 as B16
 import Lorentz.Contracts.STKR (TimeConfig(..))

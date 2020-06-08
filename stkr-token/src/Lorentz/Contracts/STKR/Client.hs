@@ -24,8 +24,8 @@ import Util.Named ((:!))
 
 import Lorentz (BigMap(..), IsoValue, Lambda, Operation)
 
-import Client.TzTest (TzTest)
-import qualified Client.TzTest as Tz
+import Client.Tezos (TzEnv)
+import qualified Client.Tezos as Tz
 import qualified Lorentz.Contracts.STKR as STKR
 
 data DeployOptions = DeployOptions
@@ -41,7 +41,7 @@ data DeployOptions = DeployOptions
 reservoirAddr :: Address
 reservoirAddr = unsafeParseAddress "tz1WAVpSaCFtLQKSJkrdVApCQC1TNK8iNxq9"
 
-deploy :: DeployOptions -> TzTest Address
+deploy :: DeployOptions -> TzEnv Address
 deploy DeployOptions{..} = do
   let initStorage =
         STKR.Storage
@@ -96,7 +96,7 @@ instance Buildable AlmostStorage where
     , ("ledger", "BigMap values should not be displayed")
     ]
 
-getStorage :: Address -> TzTest AlmostStorage
+getStorage :: Address -> TzEnv AlmostStorage
 getStorage = Tz.getStorage @AlmostStorage
 
 data CallOptions = CallOptions
@@ -107,7 +107,7 @@ data CallOptions = CallOptions
 
 call
   :: CallOptions
-  -> TzTest ()
+  -> TzEnv ()
 call CallOptions{..} = Tz.transfer $
   Tz.TransferP
     { tpQty = unsafeMkMutez 0

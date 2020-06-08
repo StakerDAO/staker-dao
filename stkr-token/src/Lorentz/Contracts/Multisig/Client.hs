@@ -12,8 +12,8 @@ import Tezos.Address (Address)
 import Tezos.Core (unsafeMkMutez)
 import Tezos.Crypto (KeyHash)
 
-import Client.TzTest (TzTest)
-import qualified Client.TzTest as Tz
+import Client.Tezos (TzEnv)
+import qualified Client.Tezos as Tz
 
 import qualified Lorentz.Contracts.Multisig as Msig
 
@@ -23,7 +23,7 @@ data DeployOptions = DeployOptions
   , teamKeys :: Set KeyHash
   }
 
-deploy :: DeployOptions -> TzTest Address
+deploy :: DeployOptions -> TzEnv Address
 deploy DeployOptions{..} = do
   let initStorage =
         Msig.Storage
@@ -45,7 +45,7 @@ data CallOptions = CallOptions
   , contract :: Address
   , parameter :: Msig.Parameter
   }
-call :: CallOptions -> TzTest ()
+call :: CallOptions -> TzEnv ()
 call CallOptions{..} = Tz.transfer $
   Tz.TransferP
     { tpQty = unsafeMkMutez 0

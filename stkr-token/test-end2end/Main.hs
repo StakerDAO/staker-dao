@@ -11,8 +11,8 @@ import Lens.Micro (ix)
 import System.Environment (getArgs)
 import Test.Hspec.Core.Runner
 
-import Client.TzTest (TzTest, runTzTest)
-import qualified Client.TzTest as Tz
+import Client.Tezos (TzEnv, runTzEnv)
+import qualified Client.Tezos as Tz
 import Lorentz.CryptoInterop (PublicKey, parseSecretKey)
 import Tezos.Address (Address)
 
@@ -29,7 +29,7 @@ data AccountData = AccountData
 loadTestAccout :: FilePath -> IO AccountData
 loadTestAccout name = Yaml.decodeFileThrow @IO @AccountData name
 
-importTestAccount :: Text -> FilePath -> TzTest Address
+importTestAccount :: Text -> FilePath -> TzEnv Address
 importTestAccount name path = do
   AccountData{..} <- liftIO $ loadTestAccout path
   sk <- either (\_ -> fail "Fail to parse secret key of imported account") pure (parseSecretKey secretKey)
@@ -40,7 +40,7 @@ main = do
   timestamp <- show <$> getCurrentTime
   args <- getArgs
   tzTestEnv <- Tz.mkEnv $ args ^. ix 0
-  faucet <- runTzTest (importTestAccount "faucet" $ args ^. ix 1) tzTestEnv
+  faucet <- runTzEnv (importTestAccount "faucet" $ args ^. ix 1) tzTestEnv
   let stageDuration = maybe (error "Fail to parse stage duration") id (readMaybe @Natural (args ^. ix 2))
   let spec = networkTestSpec $ TestOptions
         { msigAlias = "msig-test" <> timestamp

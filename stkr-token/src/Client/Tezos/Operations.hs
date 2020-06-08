@@ -1,16 +1,7 @@
 {-# LANGUAGE NoRebindableSyntax #-}
 
-module Client.TzTest
-  ( TzTest
-  , runTzTest
-
-  , Env(..)
-  , NodeAddress(..)
-  , Verbosity(..)
-  , getTezosClientCmd
-  , mkEnv
-
-  , TransferP(..)
+module Client.Tezos.Operations
+ ( TransferP(..)
   , transfer
   , call
 
@@ -34,22 +25,11 @@ module Client.TzTest
 
 import Prelude hiding (hPutStrLn, unlines)
 
-import Control.Concurrent (forkIO)
-import qualified Control.Exception as E
-import Data.Aeson (FromJSON)
-import Data.List (unlines)
 import Data.Singletons (SingI)
 import qualified Data.Text as T
 import Data.Text.Lazy (toStrict)
-import qualified Data.Yaml as Yaml
 import Fmt (Buildable, pretty)
 import Lens.Micro (ix)
-import System.Environment (lookupEnv)
-import System.Environment (getEnvironment)
-import System.Exit (ExitCode)
-import System.IO (hFlush, hGetLine, hPutStrLn)
-import System.Process
-  (CreateProcess(..), StdStream(..), createProcess, proc, waitForProcess)
 import Text.Hex (encodeHex)
 
 import qualified Crypto.Error as CE
@@ -74,130 +54,9 @@ import Lorentz.CryptoInterop
   encodeBase58Check, formatSecretKey, parseKeyHash, parsePublicKey,
   parseSecretKey, parseSignature, sign)
 
-data NodeAddress = NodeAddress
-  { naHost :: Text
-  , naPort :: Natural
-  }
-  deriving stock Generic
-  deriving anyclass FromJSON
+import Client.Tezos.Core
+  (TzEnv, Verbosity(..), exec, execSilent, execSilentWithStdout)
 
-data Env = Env
-  { envTezosClientCmd :: Text
-  , envNodeAddr :: NodeAddress
-  , envSecure :: Bool
-  , envVerbosity :: Verbosity
-  }
-  deriving stock Generic
-  deriving anyclass FromJSON
-
-getTezosClientCmd :: IO Text
-getTezosClientCmd = lookupEnv "TEZOS_CLIENT" >>=
-    maybe
-      (fail "TEZOS_CLIENT enviromet variable is missing")
-      (pure . T.pack)
-
-
-mkEnv :: FilePath -> IO Env
-mkEnv nodeAddressConfigPath =
-  Yaml.decodeFileThrow @IO @Env nodeAddressConfigPath
-
-type TzTest a = ReaderT Env IO a
-
-runTzTest :: TzTest a -> Env -> IO a
-runTzTest = runReaderT
-
--- Flattened
-data Verbosity =
-    Silent
-  | ShowStdOut
-  | ShowStdErr
-  | ShowBoth
-  deriving (Eq, Generic, FromJSON, Read)
-
-exec :: Verbosity -> [Text] -> TzTest (Text, Text)
-exec verbosity args =
-  execWithShell verbosity args id
-
-execWithEnvVerb :: [Text] -> TzTest (Text, Text)
-execWithEnvVerb cmd = do
-  verb <- asks envVerbosity
-  exec verb cmd
-
-execSilentWithStdout :: [Text] -> TzTest Text
-execSilentWithStdout args = fst <$> execWithEnvVerb args
-
-execSilent :: [Text] -> TzTest ()
-execSilent = void . execWithEnvVerb
-
--- For this to work well, you SHALL link with `threaded` RTS!!!
--- Stdin is inherited!
-callProcessWithReadStd
-  :: Verbosity
-  -> FilePath
-  -> [String]
-  -> Maybe [(String, String)]
-  -> IO (ExitCode, String, String)
-callProcessWithReadStd verbosity cmd args penv = do
-  (_, Just hout, Just herr, p) <-
-    createProcess $ (proc cmd args) { env = penv
-                                    , std_out = CreatePipe
-                                    , std_err = CreatePipe
-                                    , delegate_ctlc = True}
-
-  let
-    geth h ho v f = do
-      ec <- E.try @E.IOException (hGetLine h)
-      case ec of
-        Right c -> do
-          if v
-            then hPutStrLn ho c
-            else pure ()
-          geth h ho v (c : f)
-        _ -> pure f
-    geth' h ho v fInit = do
-      lock <- newEmptyMVar
-      forkIO $
-        geth h ho v fInit >>= putMVar lock
-      pure lock
-
-  outlock <-
-    geth' hout stdout
-      (verbosity == ShowStdOut || verbosity == ShowBoth) []
-  hFlush stdout
-  errlock <- geth' herr stderr False []
-  outs <- unlines . reverse <$> takeMVar outlock
-  errs <- unlines . reverse <$> takeMVar errlock
-  when (verbosity == ShowStdErr || verbosity == ShowBoth) $
-    hPutStrLn stderr errs *> hFlush stderr
-  ec <- waitForProcess p
-  pure (ec, outs, errs)
-
-execWithShell
-  :: Verbosity
-  -> [Text]
-  -> (IO (String, String) -> IO (String, String))
-  -> TzTest (Text, Text)
-execWithShell verbosity args shellTransform = do
-  Env{envNodeAddr = NodeAddress{..}, ..} <- ask
-  let outputShell = do
-        let allargs =
-              [ "-A", naHost
-              , "-P", show naPort
-              ] <> (if envSecure then ["-S"] else [])  <> args
-        -- putTextLn $ "EXEC!: " <> envTezosClientCmd <> " " <> T.intercalate " " allargs
-        e <- getEnvironment
-        -- Ignore exit code ATM
-        (_r, o, err) <-
-          callProcessWithReadStd
-            verbosity
-            (T.unpack envTezosClientCmd)
-            (map T.unpack allargs)
-            (Just $ modenv e)
-        -- putStr $ "RECV!: " ++ o
-        return (o, err)
-  liftIO $ bimap T.pack T.pack <$> shellTransform outputShell
-  where
-    modenv e = ("TEZOS_CLIENT_UNSAFE_DISABLE_DISCLAIMER", "YES") : e
 
 data TransferP a = TransferP
   { tpQty :: Mutez
@@ -209,7 +68,7 @@ data TransferP a = TransferP
 
 transfer
   :: NicePrintedValue a
-  => TransferP a -> TzTest ()
+  => TransferP a -> TzEnv ()
 transfer TransferP{..} = void $ do
   exec ShowBoth $
     [ "transfer", toText mtzShown
@@ -224,13 +83,12 @@ transfer TransferP{..} = void $ do
     mtzRemShown' = show (mtz `mod` 1000000)
     mtzRemShown = replicate (6 - length mtzRemShown') '0' <> mtzRemShown'
 
-
 call
   :: NicePrintedValue p
   => Address
   -> Address
   -> p
-  -> TzTest ()
+  -> TzEnv ()
 call caller contract parameter = transfer $
   TransferP
     { tpQty = unsafeMkMutez 0
@@ -255,7 +113,7 @@ originateContract
   ( NiceStorage st
   , NiceParameterFull p
   )
-  => OriginateContractP p st -> TzTest Address
+  => OriginateContractP p st -> TzEnv Address
 originateContract OriginateContractP{..} = do
   let contractString = toStrict . printLorentzContract True $ ocpContract
   let initString = toStrict . printLorentzValue True $ ocpInitalStorage
@@ -284,7 +142,7 @@ data ResolveType t where
   PkSigAlias :: ByteString -> ResolveType (PublicKey, Signature)
 
 resolve'
-  :: ResolveType t -> OrAlias t -> TzTest t
+  :: ResolveType t -> OrAlias t -> TzEnv t
 resolve' _ (Value v) = pure v
 resolve' rt (Alias al) = resolve rt al
 
@@ -303,7 +161,7 @@ mySignPK skBytes bytes = SignatureEd25519 . TzEd25519.Signature . Ed25519.sign s
     pk = Ed25519.toPublic sk
 
 
-signWithTezosClient :: Text -> ByteString -> TzTest Signature
+signWithTezosClient :: Text -> ByteString -> TzEnv Signature
 signWithTezosClient accountName bytes = do
   let hexString = encodeHex bytes
   signatureString <- lineWithPrefix "Signature: " . fst <$>
@@ -313,7 +171,7 @@ signWithTezosClient accountName bytes = do
   either ( fail . ("Signature parsing failed: " <>) . pretty) pure $ parseSignature signatureString
 
 generateSigPK
-  :: Text -> ByteString -> TzTest (PublicKey, Signature)
+  :: Text -> ByteString -> TzEnv (PublicKey, Signature)
 generateSigPK alias toSign = do
   cmdOut <- execSilentWithStdout ["show","address", alias, "-S"]
   let pkString = lineWithPrefix "Public Key: " cmdOut
@@ -331,13 +189,13 @@ generateSigPK alias toSign = do
   signature <- chosenMethod toSign
   pure (pk, signature)
   where
-    signWithLedger :: Text -> ByteString -> TzTest Signature
+    signWithLedger :: Text -> ByteString -> TzEnv Signature
     signWithLedger ledgerAccount bytes = do
       putStrLn $ "Signing with secret key " <> ledgerAccount <> " stored on Ledger"
       putStrLn $ ("Please approve signing operation on Ledger" :: Text)
       signWithTezosClient ledgerAccount bytes
 
-    signEncrypted :: Text -> ByteString -> TzTest Signature
+    signEncrypted :: Text -> ByteString -> TzEnv Signature
     signEncrypted encryptedSk bytes =
       let attempt n = do
             mbPass <- liftIO
@@ -360,13 +218,13 @@ generateSigPK alias toSign = do
       "The password is wrong, try again (" ++ show n ++ " attempt" ++
         if n > 1 then "s remain)" else " remains)"
 
-    signUnencrypted :: Text -> ByteString -> TzTest Signature
+    signUnencrypted :: Text -> ByteString -> TzEnv Signature
     signUnencrypted plainSk bytes =
       either (fail .  pretty) (pure . flip sign bytes) $
         parseSecretKey plainSk
 
 resolve
-  :: ResolveType t -> Text -> TzTest t
+  :: ResolveType t -> Text -> TzEnv t
 resolve (PkSigAlias bytes) alias = generateSigPK alias bytes
 resolve rt alias = do
   let (params, prefix) =
@@ -386,18 +244,18 @@ resolve rt alias = do
     ContractAlias -> handleErr errLabel $ parseAddress key
     _ -> error "resolve: impossible condition"
 
-handleErr :: Buildable a => String -> Either a t -> TzTest t
+handleErr :: Buildable a => String -> Either a t -> TzEnv t
 handleErr s = either (fail . ((s <> ": ") <>) . pretty) pure
 
 generateKey
-  :: Text -> TzTest PublicKey
+  :: Text -> TzEnv PublicKey
 generateKey alias = do
   execSilent [ "gen", "keys", alias ]
   let errLabel = "Error generating key " <> toString alias
   pk <- T.strip . lineWithPrefix "Public Key: " <$> execSilentWithStdout [ "show", "address", alias ]
   handleErr errLabel $ parsePublicKey pk
 
-importSecretKey :: Text -> SecretKey -> TzTest Address
+importSecretKey :: Text -> SecretKey -> TzEnv Address
 importSecretKey alias sk = do
   let skUri = "unencrypted:" <> formatSecretKey sk
   output <- execSilentWithStdout $ ["import", "secret", "key", alias, skUri, "--force"]
@@ -410,7 +268,7 @@ getStorage
   , SingI (ToT st)
   , Typeable (ToT st)
   )
-  => Address -> TzTest st
+  => Address -> TzEnv st
 getStorage addr = do
   output <- execSilentWithStdout $
     ["get", "contract", "storage", "for", formatAddress addr]
@@ -420,7 +278,7 @@ getStorage addr = do
 stripQuotes :: Text -> Text
 stripQuotes = T.dropAround (== '"') . T.strip
 
-getChainId :: Text -> TzTest ChainId
+getChainId :: Text -> TzEnv ChainId
 getChainId name = do
   output <- execSilentWithStdout $
     ["rpc", "get", "/chains/" <> name <> "/chain_id"]
@@ -428,10 +286,10 @@ getChainId name = do
   either (fail . pretty) pure
     (parseChainId . stripQuotes $ output)
 
-getMainChainId :: TzTest ChainId
+getMainChainId :: TzEnv ChainId
 getMainChainId = getChainId "main"
 
-getHeadTimestamp :: TzTest Timestamp
+getHeadTimestamp :: TzEnv Timestamp
 getHeadTimestamp = do
   output <- execSilentWithStdout $ ["get", "timestamp"]
   maybe (fail "Failed to parse timestamp") pure $
@@ -449,7 +307,7 @@ hashAddressToScriptExpression =
 -- NOTE: We don't try to interpret tezos client output,
 --   we simply present it to the user.
 getElementTextOfBigMapByHash
-  :: Text -> Natural -> TzTest Text
+  :: Text -> Natural -> TzEnv Text
 getElementTextOfBigMapByHash thash bigMapId = do
   (o, e) <- exec Silent ["get", "element", thash, "of", "big", "map", show bigMapId]
   return $
@@ -460,6 +318,6 @@ getElementTextOfBigMapByHash thash bigMapId = do
               else "Internal error: " <> e
 
 getElementTextOfBigMapByAddress
-  :: Address -> Natural -> TzTest Text
+  :: Address -> Natural -> TzEnv Text
 getElementTextOfBigMapByAddress =
   getElementTextOfBigMapByHash . hashAddressToScriptExpression

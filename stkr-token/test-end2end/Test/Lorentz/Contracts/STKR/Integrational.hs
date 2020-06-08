@@ -15,8 +15,8 @@ import Michelson.Text (mkMTextUnsafe)
 import Test.Hspec (Expectation, Spec, it, runIO, shouldBe)
 import Text.Hex (decodeHex)
 
-import Client.TzTest (TzTest, runTzTest)
-import qualified Client.TzTest as Tz
+import Client.Tezos (TzEnv, runTzEnv)
+import qualified Client.Tezos as Tz
 import Lorentz.CryptoInterop
   (PublicKey, SecretKey, blake2b, detSecretKey, hashKey, toPublic)
 import Tezos.Address (Address)
@@ -45,13 +45,13 @@ tezosWpUrlHash = (STKR.Sha256Hash hash_, url)
     hash_ = fromMaybe (error "tezosWpUrlHash: unexpected") . decodeHex $
       "be7663e0ef87d51ab149a60dfad4df5940d30395ba287d9907f8d66ce5061d96"
 
-expectStorage :: Address -> (STKR.AlmostStorage -> Expectation) -> TzTest ()
+expectStorage :: Address -> (STKR.AlmostStorage -> Expectation) -> TzEnv ()
 expectStorage addr check = STKR.getStorage addr >>= lift . check
 
 networkTestSpec :: TestOptions -> Spec
 networkTestSpec TestOptions{..} = do
-  let tzTest :: TzTest a -> IO a
-      tzTest test = runTzTest test tzTestEnv
+  let tzTest :: TzEnv a -> IO a
+      tzTest test = runTzEnv test tzTestEnv
   let (sk1, pk1) = newKeypair "1"
   let (sk2, pk2) = newKeypair "2"
   let (sk3, pk3) = newKeypair "3"

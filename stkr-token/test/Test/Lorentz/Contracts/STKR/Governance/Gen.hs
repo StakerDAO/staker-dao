@@ -14,11 +14,11 @@ module Test.Lorentz.Contracts.STKR.Governance.Gen
   , genProposals
   ) where
 
-import CryptoInterop (SecretKey)
 import Data.Time.Calendar (addDays, addGregorianMonthsClip, fromGregorian)
 import Data.Time.Clock (UTCTime(..), secondsToDiffTime)
 import Lens.Micro (ix)
 import Lens.Micro.TH (makeLenses)
+import Lorentz.CryptoInterop (SecretKey)
 import System.Random (Random)
 import Tezos.Core (Timestamp, timestampFromUTCTime)
 

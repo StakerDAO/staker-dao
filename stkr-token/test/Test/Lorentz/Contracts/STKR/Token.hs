@@ -4,9 +4,9 @@ module Test.Lorentz.Contracts.STKR.Token
 
 import Prelude
 
-import CryptoInterop (toPublic)
 import Lens.Micro (at)
 import Lorentz (unTAddress)
+import Lorentz.CryptoInterop (toPublic)
 import Lorentz.Test
 import Test.Hspec (Spec, it)
 import Util.Named ((.!))

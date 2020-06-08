@@ -7,10 +7,10 @@ module Test.Lorentz.Contracts.STKR.Upgradability
 
 import Prelude
 
-import CryptoInterop (SecretKey, toPublic)
 import Lorentz hiding (lambda, (>>))
 import qualified Lorentz as L
 import Lorentz.Base (( # ))
+import Lorentz.CryptoInterop (SecretKey, toPublic)
 import Lorentz.Test
 import Test.Hspec (Spec, it)
 import qualified Test.Hspec.QuickCheck as HQ

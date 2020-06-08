@@ -14,8 +14,8 @@ import Tezos.Crypto (formatPublicKey, formatSignature, hashKey)
 import Util.IO (writeFileUtf8)
 import Util.Named ((.!))
 
-import TzTest (TzTest)
-import qualified TzTest as Tz
+import Client.TzTest (TzTest)
+import qualified Client.TzTest as Tz
 
 import qualified Lorentz.Contracts.Client as Client
 import qualified Lorentz.Contracts.Multisig as Msig

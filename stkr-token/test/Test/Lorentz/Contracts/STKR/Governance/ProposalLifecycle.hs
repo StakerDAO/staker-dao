@@ -4,11 +4,11 @@ module Test.Lorentz.Contracts.STKR.Governance.ProposalLifecycle
 
 import Prelude
 
-import CryptoInterop
-  (KeyHash, PublicKey, SecretKey, blake2b, hashKey, sign, toPublic)
 import qualified Data.Map as Map
 import Lens.Micro (ix)
 import qualified Lorentz as L
+import Lorentz.CryptoInterop
+  (KeyHash, PublicKey, SecretKey, blake2b, hashKey, sign, toPublic)
 import Lorentz.Test
 import Named (arg)
 import Test.Hspec (Expectation, Spec, it)

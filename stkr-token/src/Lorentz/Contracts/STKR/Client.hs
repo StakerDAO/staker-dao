@@ -17,16 +17,16 @@ import qualified Data.Set as S
 
 import Fmt (Buildable(..), Builder, blockMapF, jsonListF, mapF')
 
-import CryptoInterop (KeyHash, PublicKey, formatKeyHash, hashKey)
+import Lorentz.CryptoInterop (KeyHash, PublicKey, formatKeyHash, hashKey)
 import Tezos.Address (Address, unsafeParseAddress)
 import Tezos.Core (unsafeMkMutez)
 import Util.Named ((:!))
 
 import Lorentz (BigMap(..), IsoValue, Lambda, Operation)
 
+import Client.TzTest (TzTest)
+import qualified Client.TzTest as Tz
 import qualified Lorentz.Contracts.STKR as STKR
-import TzTest (TzTest)
-import qualified TzTest as Tz
 
 data DeployOptions = DeployOptions
   { contractAlias :: Text

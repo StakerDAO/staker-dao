@@ -40,13 +40,13 @@ import qualified Data.Text as T
 import Fmt (pretty)
 import qualified Options.Applicative as Opt
 
-import CryptoInterop
+import Lorentz.CryptoInterop
   (KeyHash, PublicKey, Signature, parseKeyHash, parsePublicKey, parseSignature)
 import Tezos.Address (Address, parseAddress)
 import Tezos.Core (Mutez, Timestamp, mkMutez, timestampFromSeconds)
 
-import TzTest (OrAlias)
-import qualified TzTest as Tz
+import Client.TzTest (OrAlias)
+import qualified Client.TzTest as Tz
 
 import qualified Data.ByteString.Base16 as B16
 import Lorentz.Contracts.STKR (TimeConfig(..))

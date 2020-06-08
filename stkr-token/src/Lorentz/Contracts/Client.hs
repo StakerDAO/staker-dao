@@ -26,15 +26,15 @@ import Fmt (Buildable(..), Builder, mapF)
 import Lens.Micro (ix)
 import Named (arg)
 
-import CryptoInterop
-  (KeyHash, PublicKey(..), SecretKey, Signature(..), sign, toPublic)
 import Lorentz.Constraints (NicePackedValue)
+import Lorentz.CryptoInterop
+  (KeyHash, PublicKey(..), SecretKey, Signature(..), sign, toPublic)
 import Lorentz.Pack (lPackValue)
 import Tezos.Address (Address)
 import Tezos.Core (Mutez)
 
-import TzTest (TzTest)
-import qualified TzTest as Tz
+import Client.TzTest (TzTest)
+import qualified Client.TzTest as Tz
 
 import qualified Lorentz.Contracts.Multisig as Msig
 import qualified Lorentz.Contracts.Multisig.Client as Msig

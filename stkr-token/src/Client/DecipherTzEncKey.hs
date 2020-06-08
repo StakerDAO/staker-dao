@@ -1,6 +1,6 @@
 {-# LANGUAGE NoRebindableSyntax #-}
 
-module DecipherTzEncKey (DecipherError(..), decipherTzEncKey) where
+module Client.DecipherTzEncKey (DecipherError(..), decipherTzEncKey) where
 
 import Prelude
 

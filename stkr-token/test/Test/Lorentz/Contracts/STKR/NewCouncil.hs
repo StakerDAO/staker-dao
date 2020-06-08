@@ -4,10 +4,10 @@ module Test.Lorentz.Contracts.STKR.NewCouncil
 
 import Prelude
 
-import CryptoInterop (detSecretKey, hashKey, toPublic)
 import qualified Data.Set as S
 import Fmt (listF, (+|), (|+))
 import Lorentz (unTAddress)
+import Lorentz.CryptoInterop (detSecretKey, hashKey, toPublic)
 import Lorentz.Test
 import Michelson.Test.Dummy (dummyNow)
 import Test.Hspec (Spec, it)

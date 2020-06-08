@@ -22,12 +22,13 @@ module Test.Lorentz.Contracts.STKR.Common
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-import CryptoInterop (PublicKey(..), SecretKey, detSecretKey, hashKey, toPublic)
 import qualified Data.ByteString as BS
 import Lens.Micro.Internal (At(..), Index, IxValue, Ixed(..))
 import Lorentz.Contracts.Client (multisignValue)
 import Lorentz.Contracts.Multisig
   (OrderDest(..), TransferOrderWrapC, mkCallOrderWrap)
+import Lorentz.CryptoInterop
+  (PublicKey(..), SecretKey, detSecretKey, hashKey, toPublic)
 import Lorentz.Test
 import Lorentz.Value
 import Michelson.Test.Dummy (dummyNow)

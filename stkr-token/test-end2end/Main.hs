@@ -11,10 +11,10 @@ import Lens.Micro (ix)
 import System.Environment (getArgs)
 import Test.Hspec.Core.Runner
 
-import CryptoInterop (PublicKey, parseSecretKey)
+import Client.TzTest (TzTest, runTzTest)
+import qualified Client.TzTest as Tz
+import Lorentz.CryptoInterop (PublicKey, parseSecretKey)
 import Tezos.Address (Address)
-import TzTest (TzTest, runTzTest)
-import qualified TzTest as Tz
 
 import Test.Lorentz.Contracts.STKR.Integrational
 

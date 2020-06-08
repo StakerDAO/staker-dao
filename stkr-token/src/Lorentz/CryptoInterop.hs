@@ -1,4 +1,4 @@
-module CryptoInterop
+module Lorentz.CryptoInterop
   ( PublicKey(..)
   , SecretKey
   , Signature(..)

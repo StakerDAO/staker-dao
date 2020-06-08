@@ -12,8 +12,8 @@ import Tezos.Address (Address)
 import Tezos.Core (unsafeMkMutez)
 import Tezos.Crypto (KeyHash)
 
-import TzTest (TzTest)
-import qualified TzTest as Tz
+import Client.TzTest (TzTest)
+import qualified Client.TzTest as Tz
 
 import qualified Lorentz.Contracts.Multisig as Msig
 

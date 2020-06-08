@@ -1,6 +1,6 @@
 {-# LANGUAGE NoRebindableSyntax #-}
 
-module TzTest
+module Client.TzTest
   ( TzTest
   , runTzTest
 
@@ -54,10 +54,6 @@ import Text.Hex (encodeHex)
 
 import qualified Crypto.Error as CE
 import qualified Crypto.PubKey.Ed25519 as Ed25519
-import CryptoInterop
-  (KeyHash, PublicKey(..), SecretKey, Signature(..), blake2b,
-  encodeBase58Check, formatSecretKey, parseKeyHash, parsePublicKey,
-  parseSecretKey, parseSignature, sign)
 import Lorentz
   (ContractCode, NiceParameterFull, NicePrintedValue, NiceStorage, lPackValue,
   parseLorentzValue)
@@ -72,7 +68,11 @@ import qualified Tezos.Crypto.Ed25519 as TzEd25519
 import Data.Maybe (fromJust)
 import System.Console.Haskeline (defaultSettings, getPassword, runInputT)
 
-import DecipherTzEncKey
+import Client.DecipherTzEncKey
+import Lorentz.CryptoInterop
+  (KeyHash, PublicKey(..), SecretKey, Signature(..), blake2b,
+  encodeBase58Check, formatSecretKey, parseKeyHash, parsePublicKey,
+  parseSecretKey, parseSignature, sign)
 
 data NodeAddress = NodeAddress
   { naHost :: Text

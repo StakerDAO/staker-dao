@@ -5,14 +5,14 @@ module Test.Lorentz.Contracts.Multisig
 
 import Prelude
 
-import CryptoInterop
-  (KeyHash, PublicKey(..), SecretKey, detSecretKey, hashKey, sign, toPublic)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Fmt ((+|), (|+))
 import Lens.Micro (ix, (&), (.~))
 import Lorentz (( # ))
 import qualified Lorentz as L
+import Lorentz.CryptoInterop
+  (KeyHash, PublicKey(..), SecretKey, detSecretKey, hashKey, sign, toPublic)
 import Lorentz.Pack (lPackValue)
 import Lorentz.Test
 import Test.Hspec (Spec, it)

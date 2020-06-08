@@ -7,8 +7,8 @@ module Test.Lorentz.Contracts.STKR.Funding
 
 import Prelude hiding (drop)
 
-import CryptoInterop (SecretKey)
 import Lorentz hiding ((>>))
+import Lorentz.CryptoInterop (SecretKey)
 import Lorentz.Test
 import Test.Hspec (Spec, it)
 import Tezos.Address (parseAddress)

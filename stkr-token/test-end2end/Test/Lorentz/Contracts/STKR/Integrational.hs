@@ -15,12 +15,12 @@ import Michelson.Text (mkMTextUnsafe)
 import Test.Hspec (Expectation, Spec, it, runIO, shouldBe)
 import Text.Hex (decodeHex)
 
-import CryptoInterop
+import Client.TzTest (TzTest, runTzTest)
+import qualified Client.TzTest as Tz
+import Lorentz.CryptoInterop
   (PublicKey, SecretKey, blake2b, detSecretKey, hashKey, toPublic)
 import Tezos.Address (Address)
 import qualified Tezos.Core as Tz
-import TzTest (TzTest, runTzTest)
-import qualified TzTest as Tz
 
 import Lorentz.Contracts.Client as Client
 import qualified Lorentz.Contracts.STKR as STKR

@@ -25,7 +25,7 @@ import Prelude
 import Options.Applicative (command, helper, info, optional, progDesc)
 import qualified Options.Applicative as Opt
 
-import CryptoInterop (KeyHash, PublicKey, Signature)
+import Lorentz.CryptoInterop (KeyHash, PublicKey, Signature)
 import Tezos.Address (Address)
 import Tezos.Core (Mutez)
 

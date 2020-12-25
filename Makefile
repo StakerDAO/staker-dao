@@ -8,7 +8,7 @@
 
 # Build everything
 dev:
-	nix-shell --run 'cd stkr-token && cabal build'
+	nix-shell --run 'cd stkr-token && hpack && cabal build -O0'
 
 # Run tests in all packages which have them.
 test:

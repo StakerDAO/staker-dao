@@ -19,7 +19,7 @@ rec {
   # nix-shell environment with installed dependencies
   shell = hs-pkgs.shellFor {
     packages = ps: [ ps.stkr-token ];
-    buildInputs = [ haskell-nix.cabal-install ];
+    buildInputs = [ haskell-nix.cabal-install pkgs.haskellPackages.hpack ];
 
     # shell environment does not include packages listed
     # in 'build-tools', so they have to be built locally by cabal

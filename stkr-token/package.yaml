@@ -26,6 +26,7 @@ dependencies:
 
 library:
   <<: *lorentz-lib-common
+  source-dirs: lib
 
   dependencies:
     - containers
@@ -58,6 +59,7 @@ library:
 executables:
   stkr-token-cli:
     <<: *exec-common
+    source-dirs: token-cli
 
     dependencies:
       - aeson

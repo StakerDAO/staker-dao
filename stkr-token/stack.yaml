@@ -24,4 +24,4 @@ extra-deps:
 # optional nix support (for `stack --nix`)
 nix:
   pure: false
-  packages: [ pkg-config libsodium ]
+  packages: [ pkg-config libsodium zlib]
